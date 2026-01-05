@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ghost Calli HSX</title>
+</head>
+<body>
+<h1>📂 Drop your HSX files here</h1>
+
+<!-- This is the visible drop zone -->
+<div id="drop-zone" style="border:2px dashed #666; padding:20px; text-align:center;">
+  Drop HSX files here
+</div>
+
+<script type="module">
+import { HSXRuntime } from "./hsx-runtime.js";
+
+const hsx = new HSXRuntime();
+
+// Automatically load your main HSX
+hsx.load("source.hsx");
+
+// Make drag-and-drop actually do something
+const dropZone = document.getElementById("drop-zone");
+
+dropZone.addEventListener("dragover", e => e.preventDefault());
+dropZone.addEventListener("drop", async e => {
+  e.preventDefault();
+  for (const file of e.dataTransfer.files) {
+    if (file.name.endsWith(".hsx")) {
+      console.log("📂 Dropped:", file.name);
+      await hsx.loadFromFile(file);
+    }
+  }
+});
+</script>
+</body>
+</html>

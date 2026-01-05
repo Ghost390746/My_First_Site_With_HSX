@@ -1,14 +1,18 @@
-// hsx-runtime.js — HSX v0.66+ Core (Full Interpreter + Modules + Fun + Attachments + Legacy Safety)
+// hsx-runtime.js — HSX v0.67+ Core (Full Interpreter + Modules + Fun + Attachments + Legacy Safety + New Commands)
 // © 2026 William Isaiah Jones
 
 export class HSXRuntime {
   constructor() {
     this.components = {};
-    this.context = {};
-    this.modules = {};       // Loaded modules (.ps, .ks)
-    this.attachments = {};   // Media/audio/rec attachments
+    this.context = {};     // General runtime context
+    this.blocks = {};      // User-created HSX blocks (funny, etc.)
+    this.data = {};        // User-defined data objects (funstone, etc.)
+    this.modules = {};     // Loaded modules (.ps, .ks)
+    this.attachments = {}; // Media/audio/rec attachments
+    this.metaTags = {};    // User-defined meta tags
+    this.emotions = {};    // User-defined interactive emotions
     this.pyodide = null;
-    this.sandboxed = true;   // Sandbox mode for HSX blocks
+    this.sandboxed = true; // Sandbox mode for HSX blocks
   }
 
   // === Python engine init ===
@@ -88,8 +92,9 @@ export class HSXRuntime {
       // === Module commands ===
       if (line.startsWith("hsx modules:")) { await this._handleModules(line.replace("hsx modules:", "").trim()); continue; }
 
-      // === Meta / Fun ===
-      if (line.startsWith("hsx:")) { await this._handleMeta(line.replace("hsx:", "").trim()); continue; }
+      // === Meta / Fun / HSX new commands ===
+      if (line.startsWith("hsx:") || line.startsWith("(hsx)")) { await this._handleNewHSXCommands(line); continue; }
+      if (line.startsWith("(funny)")) { await this._handleFunnyBlock(line, lines, i); continue; }
 
       // === Other ===
       console.log(`ℹ️ HSX meta line: ${line}`);
@@ -121,19 +126,20 @@ export class HSXRuntime {
   async _runJS(code, domSafe = false) {
     try {
       if (domSafe) {
-        // Legacy behavior: wrap in DOMContentLoaded for safety
         new Function(`
           document.addEventListener('DOMContentLoaded', () => {
             try { ${code} } catch(e) { console.error('❌ JS error:', e); }
           });
         `)();
-      } else {
-        new Function(code)();
-      }
+      } else { new Function(code)(); }
       console.log("💻 JS executed");
     } catch(e){ console.error("❌ JS error:", e);}
   }
-  async _runPy(code) { if (this.pyodide) try { await this.pyodide.runPythonAsync(code); console.log("🐍 Python executed"); } catch(e){ console.error("❌ Python error:", e);} }
+
+  async _runPy(code) {
+    if (this.pyodide) try { await this.pyodide.runPythonAsync(code); console.log("🐍 Python executed"); }
+    catch(e){ console.error("❌ Python error:", e);}
+  }
 
   // === HSX interpreter ===
   async _runHSXBlock(code) {
@@ -142,16 +148,9 @@ export class HSXRuntime {
     for (let line of lines) {
       if (!line) continue;
 
-      // === Module execution ===
       if (line.endsWith(".ps") || line.endsWith(".ks")) { await this._runModule(line.trim()); continue; }
-
-      // === Attachments (keep old '-' and ',' parsing) ===
       if (line.includes("eq") || line.includes("-") || line.includes(",")) { this._parseAttachmentLegacy(line); continue; }
-
-      // === Fun mode ===
       if (line.startsWith("hsx:fun")) { await this._runFun(line.replace("hsx:fun","").trim()); continue; }
-
-      // === Inline JS / Py code ===
       if (line.startsWith("{js")) await this._runJS(line.replace("{js","").replace("}","").trim());
       else if (line.startsWith("{py")) await this._runPy(line.replace("{py","").replace("}","").trim());
     }
@@ -162,7 +161,7 @@ export class HSXRuntime {
     const key = line.split("eq")[0].replace("hsx:new","").trim();
     let val = [];
     if (line.includes(",")) val = line.split("eq")[1].split(",").map(v=>v.trim());
-    else val = line.split(/eq|-/).slice(1).map(v=>v.trim()); // fallback to old '-' style
+    else val = line.split(/eq|-/).slice(1).map(v=>v.trim());
     this.attachments[key] = val;
     console.log("📎 Attachment stored:", key, this.attachments[key]);
   }
@@ -196,14 +195,41 @@ export class HSXRuntime {
       if (line.endsWith(".ps") || line.endsWith(".ks")) await this._runModule(line);
       else if (line.startsWith("{js")) await this._runJS(line.replace("{js","").replace("}","").trim());
       else if (line.startsWith("{py")) await this._runPy(line.replace("{py","").replace("}","").trim());
-      else {
-        // Legacy fallback: eval anything left (raw JS)
-        try { new Function(line)(); console.log("🌀 Fun fallback executed:", line); } catch(e){ console.error("❌ Fun fallback error:", e);}
-      }
+      else try { new Function(line)(); console.log("🌀 Fun fallback executed:", line); } catch(e){ console.error("❌ Fun fallback error:", e);}
     }
   }
 
-  async _handleMeta(meta) { console.log("ℹ️ HSX meta:", meta); }
+  // === New HSX commands handler ===
+  async _handleNewHSXCommands(line) {
+    if (line.startsWith("(hsx) hsx extract modules")) { console.log("📦 HSX module extraction enabled"); return; }
+    if (line.startsWith("(hsx) module extraction")) { console.log("📦 Module extraction flag set"); return; }
+    if (line.startsWith("(hsx) create new file")) { console.log(`📄 New file creation: ${line}`); return; }
+    if (line.startsWith("(hsx) create new block")) {
+      const name = line.replace("(hsx) create new block cal it","").replace(":)","").trim();
+      this.blocks[name] = { data: {}, code: "" };
+      console.log(`🆕 Block created: ${name}`);
+      return;
+    }
+    if (line.startsWith("(hsx) allow data and export")) { console.log("📤 Data export enabled"); return; }
+    if (line.startsWith("(hsx) allow emotions")) { console.log("😃 Emotions enabled"); return; }
+    if (line.startsWith("(hsx) allow meta data set")) { console.log("📝 Meta data enabled"); return; }
+    if (line.startsWith("(hsx) make new meta data tag")) {
+      const tag = line.split(":")[1]?.trim();
+      if (tag) { this.metaTags[tag] = {}; console.log(`🏷️ Meta tag registered: ${tag}`); }
+      return;
+    }
+    console.log("ℹ️ HSX new command:", line);
+  }
+
+  // === Funny blocks ===
+  async _handleFunnyBlock(line, lines, i) {
+    const name = line.replace("(funny)","").split(":")[0].trim();
+    const contentLines = [];
+    let j = i + 1;
+    while (j < lines.length && !lines[j].startsWith("(funny)")) { contentLines.push(lines[j]); j++; }
+    this.blocks[name] = { data: {}, code: contentLines.join("\n") };
+    console.log(`😂 Funny block created: ${name}`);
+  }
 
   // === Browser-native execution ===
   async loadFromFile(file) { await this.execute(await file.text()); }

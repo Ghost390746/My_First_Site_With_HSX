@@ -85,30 +85,39 @@ export class HSXRuntime {
         continue;
       }
 
-      // === JS Blocks ===
-      if (line.startsWith("{js")) {
-        let jsCode = "";
-        i++;
-        while (i < lines.length && !lines[i].match(/^}\s*$/)) {
-          jsCode += lines[i] + "\n";
-          i++;
-        }
-        jsCode = jsCode.trim();
-        if (jsCode) {
+// === JS Blocks ===
+if (line.startsWith("{js")) {
+  let jsCode = "";
+  i++;
+  while (i < lines.length && !lines[i].match(/^}\s*$/)) {
+    jsCode += lines[i] + "\n";
+    i++;
+  }
+  jsCode = jsCode.trim();
+
+  if (jsCode) {
+    try {
+      // DOM-ready wrapper for safety (no nested try/catch conflict)
+      new Function(`
+        document.addEventListener('DOMContentLoaded', async () => {
           try {
-            // DOM-ready wrapper for safety
-            new Function(`
-              document.addEventListener('DOMContentLoaded', () => {
-                try { ${jsCode} } catch(e) { console.error('❌ JS error:', e); }
-              });
-            `)();
-            console.log("💻 JS block executed (DOM safe).");
-          } catch (e) {
-            console.error("❌ JS block error:", e, "\nCode:\n", jsCode);
+            const __result = (async () => { ${jsCode} })();
+            if (__result?.catch) {
+              __result.catch(err => console.error('❌ JS error:', err));
+            }
+          } catch (err) {
+            console.error('❌ JS error:', err);
           }
-        }
-        continue;
-      }
+        });
+      `)();
+
+      console.log("💻 JS block executed (DOM safe).");
+    } catch (e) {
+      console.error("❌ JS block error:", e, "\nCode:\n", jsCode);
+    }
+  }
+  continue;
+}
 
       // === Python Blocks ===
       if (line.startsWith("{py")) {
@@ -235,3 +244,4 @@ if (location.search.includes("hsxFiles=")) {
   const hsx = new HSXRuntime();
   hsx.load(location.pathname);
 }
+

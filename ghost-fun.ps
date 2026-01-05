@@ -1,3 +1,4 @@
+// === Create the ghost-fun.ps module ===
 hsx modules: create > ghost-fun.ps
 
 hsx:fun
@@ -14,69 +15,85 @@ window.ghostSystem = {
     const audio = new Audio(ghostAudioSrc);
     audio.volume = 0.5;
 
-    // Ghost animation
+    // === Ghost animation function with funstone metadata ===
     this.animateGhost = function(el){
-      el.style.transition="opacity 1s, transform 0.5s";
-      el.style.opacity="1";
-      let dx=(Math.random()-0.5)*2;
-      let dy=(Math.random()-0.5)*2;
+      el.style.transition = "opacity 1s, transform 0.5s";
+      el.style.opacity = "1";
+      let dx = (Math.random()-0.5)*2;
+      let dy = (Math.random()-0.5)*2;
       function float(){
-        let top=parseFloat(el.style.top);
-        let left=parseFloat(el.style.left);
-        el.style.top=`${top+dy}px`;
-        el.style.left=`${left+dx}px`;
-        if(top+dy<0||top+dy>window.innerHeight-60) dy=-dy;
-        if(left+dx<0||left+dx>window.innerWidth-60) dx=-dx;
+        let top = parseFloat(el.style.top);
+        let left = parseFloat(el.style.left);
+        el.style.top = `${top+dy}px`;
+        el.style.left = `${left+dx}px`;
+        if(top+dy<0 || top+dy>window.innerHeight-60) dy=-dy;
+        if(left+dx<0 || left+dx>window.innerWidth-60) dx=-dx;
         requestAnimationFrame(float);
       }
       requestAnimationFrame(float);
-      let fade=true;
-      setInterval(()=>{el.style.opacity=fade?"0.6":"1";fade=!fade;},2200);
+
+      // Pulsating opacity for fun effect
+      let fade = true;
+      setInterval(()=>{ el.style.opacity = fade?"0.6":"1"; fade=!fade; }, 2200);
+
+      // Store funstone data for this ghost
+      if(window.HSXRuntime?.prototype.blocks["Ghost"]) {
+        window.HSXRuntime.prototype.blocks["Ghost"].data = {
+          position: { top: el.style.top, left: el.style.left },
+          created: Date.now()
+        };
+      }
     };
 
-    // Fog particles
-    this.fogParticles=[];
-    this.spiritParticles=[];
+    // === Fog & spirit particles ===
+    this.fogParticles = [];
+    this.spiritParticles = [];
     for(let i=0;i<60;i++) this.fogParticles.push({
-      x:Math.random()*canvas.width,
-      y:Math.random()*canvas.height,
-      radius:Math.random()*30+20,
-      speed:Math.random()*0.3+0.1,
-      alpha:Math.random()*0.3+0.1,
-      dx:Math.sin(Math.random()*2*Math.PI)*0.3
+      x: Math.random()*canvas.width,
+      y: Math.random()*canvas.height,
+      radius: Math.random()*30+20,
+      speed: Math.random()*0.3+0.1,
+      alpha: Math.random()*0.3+0.1,
+      dx: Math.sin(Math.random()*2*Math.PI)*0.3
     });
 
     this.spawnSpiritParticle = () => { 
       this.spiritParticles.push({
-        x:Math.random()*canvas.width,
-        y:canvas.height+10,
-        radius:Math.random()*10+5,
-        speed:Math.random()*1+0.5,
-        alpha:Math.random()*0.5+0.3
+        x: Math.random()*canvas.width,
+        y: canvas.height+10,
+        radius: Math.random()*10+5,
+        speed: Math.random()*1+0.5,
+        alpha: Math.random()*0.5+0.3
       }); 
     };
 
-    const self=this;
+    const self = this;
     function animateFog(){
       ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      // Draw fog
       self.fogParticles.forEach(p=>{
-        p.y-=p.speed;
-        p.x+=p.dx;
-        if(p.y+p.radius<0) p.y=canvas.height+p.radius;
+        p.y -= p.speed;
+        p.x += p.dx;
+        if(p.y+p.radius < 0) p.y = canvas.height+p.radius;
         ctx.beginPath();
-        ctx.fillStyle=`rgba(200,200,255,${p.alpha})`;
+        ctx.fillStyle = `rgba(200,200,255,${p.alpha})`;
         ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);
         ctx.fill();
       });
+
+      // Draw spirit particles
       self.spiritParticles.forEach((p,i)=>{
-        p.y-=p.speed;
-        p.alpha-=0.003;
+        p.y -= p.speed;
+        p.alpha -= 0.003;
         ctx.beginPath();
-        ctx.fillStyle=`rgba(180,180,255,${Math.max(0,p.alpha)})`;
+        ctx.fillStyle = `rgba(180,180,255,${Math.max(0,p.alpha)})`;
         ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);
         ctx.fill();
-        if(p.alpha<=0) self.spiritParticles.splice(i,1);
+        if(p.alpha <= 0) self.spiritParticles.splice(i,1);
       });
+
+      // Randomly spawn spirit particles
       if(Math.random()<0.03) self.spawnSpiritParticle();
       requestAnimationFrame(animateFog);
     }
@@ -86,37 +103,52 @@ window.ghostSystem = {
     this.audio = audio;
   },
 
-  addGhost(date,note,ghostHTML){
+  // === Add ghost with funstone & HSX blocks support ===
+  addGhost(date, note, ghostHTML){
     if(!date) return alert("Please select a date!");
-    this.ghosts.push({date,note});
 
-    const li=document.createElement("li");
-    li.textContent=`${date}: ${note}`;
-    li.style.marginBottom="6px";
+    const ghostEntry = { date, note, created: Date.now() };
+    this.ghosts.push(ghostEntry);
+
+    // Render ghost note in list
+    const li = document.createElement("li");
+    li.textContent = `${date}: ${note}`;
+    li.style.marginBottom = "6px";
     document.getElementById("ghost-list").appendChild(li);
 
-    const glow=document.createElement("div");
-    glow.style.position="absolute";
-    glow.style.top=`${Math.random()*200+50}px`;
-    glow.style.left=`${Math.random()*300+50}px`;
-    glow.style.width="15px";
-    glow.style.height="15px";
-    glow.style.borderRadius="50%";
-    glow.style.background="rgba(200,200,255,0.8)";
-    glow.style.boxShadow="0 0 15px rgba(200,200,255,0.9)";
-    glow.style.pointerEvents="none";
+    // Glow effect for fun
+    const glow = document.createElement("div");
+    glow.style.position = "absolute";
+    glow.style.top = `${Math.random()*200+50}px`;
+    glow.style.left = `${Math.random()*300+50}px`;
+    glow.style.width = "15px";
+    glow.style.height = "15px";
+    glow.style.borderRadius = "50%";
+    glow.style.background = "rgba(200,200,255,0.8)";
+    glow.style.boxShadow = "0 0 15px rgba(200,200,255,0.9)";
+    glow.style.pointerEvents = "none";
     this.container.appendChild(glow);
     setTimeout(()=>this.container.removeChild(glow),1800);
 
+    // Render ghost component/block with animation
     if(ghostHTML){
-      const c=document.createElement("div");
-      c.innerHTML=ghostHTML;
-      const el=c.firstElementChild;
-      el.style.top=`${Math.random()*(window.innerHeight-60)}px`;
-      el.style.left=`${Math.random()*(window.innerWidth-60)}px`;
+      const c = document.createElement("div");
+      c.innerHTML = ghostHTML;
+      const el = c.firstElementChild;
+
+      // Random position for ghost
+      el.style.top = `${Math.random()*(window.innerHeight-60)}px`;
+      el.style.left = `${Math.random()*(window.innerWidth-60)}px`;
       document.body.appendChild(el);
+
+      // Animate ghost and play sound
       this.animateGhost(el);
-      try{this.audio.currentTime=0;this.audio.play();}catch(err){console.warn("⚠️ Audio play blocked",err);}
+      try { this.audio.currentTime=0; this.audio.play(); } catch(err){ console.warn("⚠️ Audio play blocked", err); }
+
+      // Store metadata for last ghost
+      if(window.HSXRuntime?.prototype.metaTags["ghost"]) {
+        window.HSXRuntime.prototype.metaTags["ghost"].last = ghostEntry;
+      }
     }
   }
 hsx end

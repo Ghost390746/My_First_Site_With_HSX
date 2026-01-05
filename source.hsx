@@ -1,3 +1,4 @@
+// === Define the Calendar Component with metadata & funstone ===
 hsx define component Calendar
   <div id="calendar-container" style="
     width: 500px;
@@ -12,7 +13,6 @@ hsx define component Calendar
     position: relative;
     overflow: hidden;
   ">
-    <!-- Fog & particles canvas -->
     <canvas id="fog-canvas" style="
       position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;
     "></canvas>
@@ -80,8 +80,13 @@ hsx define component Calendar
       z-index: 2;
     "></ul>
   </div>
+  (hsx) allow meta data set true:)
+  (hsx) make new meta data tag: calendar-container:)
+  (hsx) allow emotions true:)
+  (hsx) allow data and export true:)
 hsx end
 
+// === Define the Ghost Component with emotions & funstone ===
 hsx define component Ghost
   <div class="ghost" style="
     position: absolute;
@@ -97,36 +102,68 @@ hsx define component Ghost
     pointer-events: none;
     text-shadow: 0 0 12px #fff, 0 0 25px #aaa;
   ">👻</div>
+  (hsx) allow emotions true:)
+  (hsx) allow data and export true:)
+  (hsx) allow meta data set true:)
+  (hsx) make new meta data tag: ghost:)
 hsx end
 
+// === Render the Calendar & attach assets ===
 hsx render Calendar
 hsx attach image "ghost.png"
 hsx attach audio "ghost-sound.mp3"
 hsx security on
 
-// Load the ghost-fun module
+// === Load ghost-fun module ===
 hsx modules: Load ghost-fun.ps
 
+// === Fun mode with metadata, emotions, and funstone ===
 hsx:fun
-// Initialize the ghost/fog system
-window.ghostSystem.init("calendar-container","fog-canvas","ghost-sound.mp3");
+if(window.ghostSystem) {
+  window.ghostSystem.init("calendar-container","fog-canvas","ghost-sound.mp3");
 
-// Add ghost message event
-document.getElementById("add-ghost").addEventListener("click",()=>{
-  const date=document.getElementById("ghost-date").value;
-  const note=document.getElementById("ghost-note").value.trim();
-  window.ghostSystem.addGhost(date,note,window.HSXRuntime?.prototype.components["Ghost"]);
-});
+  const addGhostBtn = document.getElementById("add-ghost");
+  addGhostBtn?.addEventListener("click", ()=>{
+    const date = document.getElementById("ghost-date").value;
+    const note = document.getElementById("ghost-note").value.trim();
 
-// Drag-and-drop HSX support
-document.getElementById("calendar-container").addEventListener("dragover",e=>e.preventDefault());
-document.getElementById("calendar-container").addEventListener("drop",async e=>{
-  e.preventDefault();
-  for(const file of e.dataTransfer.files) if(file.name.endsWith(".hsx")&&window.HSXRuntime){
-    const runtime=new HSXRuntime();
-    await runtime.loadFromFile(file);
-  }
-});
+    // Funstone for storing ghost data internally in HSX runtime
+    const ghostData = { date, note, created: Date.now() };
+    if(window.HSXRuntime?.prototype.blocks["Ghost"]) {
+      window.HSXRuntime.prototype.blocks["Ghost"].data = ghostData;
+    }
+
+    // Ghost component/block with emotions & metadata
+    const ghostBlock = window.HSXRuntime?.prototype.blocks["Ghost"] || window.HSXRuntime?.prototype.components["Ghost"];
+    window.ghostSystem.addGhost(date, note, ghostBlock);
+
+    // Metadata tagging for calendar
+    if(window.HSXRuntime?.prototype.metaTags["calendar-container"]) {
+      window.HSXRuntime.prototype.metaTags["calendar-container"].lastGhost = ghostData;
+    }
+  });
+
+  // Drag-and-drop HSX support
+  const container = document.getElementById("calendar-container");
+  container?.addEventListener("dragover", e=>e.preventDefault());
+  container?.addEventListener("drop", async e=>{
+    e.preventDefault();
+    for(const file of e.dataTransfer.files) {
+      if(file.name.endsWith(".hsx") && window.HSXRuntime) {
+        const runtime = new HSXRuntime();
+        await runtime.loadFromFile(file);
+      }
+    }
+  });
+
+  // Example of interactive emotion: hover makes ghosts appear
+  const ghostElements = document.querySelectorAll(".ghost");
+  ghostElements.forEach(g=>{
+    g.addEventListener("mouseenter", ()=> g.style.opacity = "1");
+    g.addEventListener("mouseleave", ()=> g.style.opacity = "0");
+  });
+}
 hsx end
 
+// === Render Ghost Template for cloning ===
 hsx render Ghost

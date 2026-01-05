@@ -193,11 +193,13 @@ addBtn.addEventListener("click", () => {
     document.body.appendChild(ghostEl);
     animateGhost(ghostEl);
 
-    // Play audio safely
-    ghostAudio.currentTime = 0;
-    ghostAudio.play().catch(()=>console.warn("⚠️ Audio play blocked"));
-  }
-});
+    try {
+  ghostAudio.currentTime = 0;
+  ghostAudio.play();
+} catch(err) {
+  console.warn("⚠️ Audio play blocked", err);
+}
+
 
 // ======================
 // Drag-and-drop support
@@ -222,3 +224,4 @@ hsx security on
 {hsx
   hsx render Ghost
 }
+

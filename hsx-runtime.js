@@ -1,15 +1,17 @@
-// hsx-runtime.js — HSX v0.64 Core (Full Custom HSX + Media + Security + Browser-Native)
+// hsx-runtime.js — HSX v0.66+ Core (Full Interpreter + Modules + Fun + Attachments + Legacy Safety)
 // © 2026 William Isaiah Jones
 
 export class HSXRuntime {
   constructor() {
     this.components = {};
     this.context = {};
+    this.modules = {};       // Loaded modules (.ps, .ks)
+    this.attachments = {};   // Media/audio/rec attachments
     this.pyodide = null;
-    this.sandboxed = true; // sandbox mode for HSX blocks
+    this.sandboxed = true;   // Sandbox mode for HSX blocks
   }
 
-  // Initialize Python engine
+  // === Python engine init ===
   async initPyodide() {
     if (!this.pyodide) {
       console.log("🐍 Initializing Pyodide...");
@@ -22,13 +24,12 @@ export class HSXRuntime {
     }
   }
 
-  // Load HSX files (supports single or multiple)
+  // === Load HSX files ===
   async loadFiles(filePaths) {
     if (!Array.isArray(filePaths)) filePaths = [filePaths];
     for (const path of filePaths) await this.load(path);
   }
 
-  // Load HSX via HTTP or local path
   async load(filePath) {
     console.log(`🌀 Loading HSX file: ${filePath}`);
     try {
@@ -41,130 +42,64 @@ export class HSXRuntime {
     }
   }
 
-  // Execute HSX code
+  // === Execute HSX code ===
   async execute(code) {
     const lines = code.split("\n").map(l => l.trimEnd());
-
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
+      if (!line) continue;
 
       // === Media ===
-      if (line.startsWith("hsx attach image")) {
-        const match = line.match(/"(.*?)"/);
-        if (match) this._attachMedia("img", match[1]);
-        continue;
-      }
-      if (line.startsWith("hsx attach video")) {
-        const match = line.match(/"(.*?)"/);
-        if (match) this._attachMedia("video", match[1]);
-        continue;
-      }
-      if (line.startsWith("hsx attach audio")) {
-        const match = line.match(/"(.*?)"/);
-        if (match) this._attachMedia("audio", match[1]);
-        continue;
-      }
+      if (line.startsWith("hsx attach image")) { this._attachMedia("img", this._extractQuotes(line)); continue; }
+      if (line.startsWith("hsx attach video")) { this._attachMedia("video", this._extractQuotes(line)); continue; }
+      if (line.startsWith("hsx attach audio")) { this._attachMedia("audio", this._extractQuotes(line)); continue; }
 
       // === Components ===
       if (line.startsWith("hsx define component")) {
         const name = line.replace("hsx define component", "").trim();
         let body = "";
         i++;
-        while (i < lines.length && !lines[i].startsWith("hsx end")) {
-          body += lines[i] + "\n";
-          i++;
-        }
+        while (i < lines.length && !lines[i].startsWith("hsx end")) { body += lines[i] + "\n"; i++; }
         this.components[name] = body;
         console.log(`🧩 Component defined: ${name}`);
         continue;
       }
+      if (line.startsWith("hsx render")) { this._renderComponent(line.replace("hsx render", "").trim()); continue; }
 
-      if (line.startsWith("hsx render")) {
-        const comp = line.replace("hsx render", "").trim();
-        this._renderComponent(comp);
-        continue;
-      }
-
-// === JS Blocks ===
-if (line.startsWith("{js")) {
-  let jsCode = "";
-  i++;
-  while (i < lines.length && !lines[i].match(/^}\s*$/)) {
-    jsCode += lines[i] + "\n";
-    i++;
-  }
-  jsCode = jsCode.trim();
-
-  if (jsCode) {
-    try {
-      // DOM-ready wrapper for safety (no nested try/catch conflict)
-      new Function(`
-        document.addEventListener('DOMContentLoaded', async () => {
-          try {
-            const __result = (async () => { ${jsCode} })();
-            if (__result?.catch) {
-              __result.catch(err => console.error('❌ JS error:', err));
-            }
-          } catch (err) {
-            console.error('❌ JS error:', err);
-          }
-        });
-      `)();
-
-      console.log("💻 JS block executed (DOM safe).");
-    } catch (e) {
-      console.error("❌ JS block error:", e, "\nCode:\n", jsCode);
-    }
-  }
-  continue;
-}
-
-      // === Python Blocks ===
-      if (line.startsWith("{py")) {
-        let pyCode = "";
+      // === JS / Python / HSX blocks ===
+      if (line.startsWith("{js") || line.startsWith("{py") || line.startsWith("{hsx")) {
+        let block = "";
+        const type = line.slice(1, 3); // "js", "py", "hsx"
         i++;
-        while (i < lines.length && !lines[i].match(/^}\s*$/)) {
-          pyCode += lines[i] + "\n";
-          i++;
-        }
-        if (this.pyodide) {
-          try {
-            await this.pyodide.runPythonAsync(pyCode);
-            console.log("🐍 Python block executed.");
-          } catch (e) {
-            console.error("❌ Python error:", e, "\nCode:\n", pyCode);
-          }
-        } else {
-          console.warn("⚠️ Skipping Python block (Pyodide not loaded).");
-        }
+        while (i < lines.length && !lines[i].match(/^}\s*$/)) { block += lines[i] + "\n"; i++; }
+        if (type === "js") await this._runJS(block, true);  // DOM-safe by default
+        else if (type === "py") await this._runPy(block);
+        else if (type === "hsx") await this._runHSXBlock(block);
         continue;
       }
 
-      // === Native HSX Blocks ===
-      if (line.startsWith("{hsx")) {
-        let hsxCode = "";
-        i++;
-        while (i < lines.length && !lines[i].match(/^}\s*$/)) {
-          hsxCode += lines[i] + "\n";
-          i++;
-        }
-        await this._runHSXBlock(hsxCode);
-        continue;
-      }
-
-      // === Security Mode ===
+      // === Security mode ===
       if (line.startsWith("hsx security")) {
-        const mode = line.replace("hsx security", "").trim();
-        this.sandboxed = mode !== "off";
+        this.sandboxed = line.replace("hsx security", "").trim() !== "off";
         console.log(`🔒 HSX security mode: ${this.sandboxed ? "ON" : "OFF"}`);
         continue;
       }
-    }
 
+      // === Module commands ===
+      if (line.startsWith("hsx modules:")) { await this._handleModules(line.replace("hsx modules:", "").trim()); continue; }
+
+      // === Meta / Fun ===
+      if (line.startsWith("hsx:")) { await this._handleMeta(line.replace("hsx:", "").trim()); continue; }
+
+      // === Other ===
+      console.log(`ℹ️ HSX meta line: ${line}`);
+    }
     console.log("✅ HSX execution complete!");
   }
 
-  // ===== Helper Methods =====
+  // === Helpers ===
+  _extractQuotes(str) { const m = str.match(/"(.*?)"/); return m ? m[1] : ""; }
+
   _attachMedia(type, src) {
     const el = document.createElement(type);
     el.src = src;
@@ -175,44 +110,110 @@ if (line.startsWith("{js")) {
   }
 
   _renderComponent(name) {
-    if (!this.components[name]) {
-      console.warn(`⚠️ Component not found: ${name}`);
-      return;
-    }
+    if (!this.components[name]) return console.warn(`⚠️ Component not found: ${name}`);
     const el = document.createElement("div");
     el.innerHTML = this.components[name];
     document.body.appendChild(el);
     console.log(`✨ Rendered component: ${name}`);
   }
 
-  async _runHSXBlock(code) {
-    if (this.sandboxed) {
-      try {
-        // Placeholder for future HSX interpreter
-        console.log("🌀 Running HSX block:\n", code);
-      } catch (e) {
-        console.error("❌ HSX block error:", e);
+  // === JS / Python runners ===
+  async _runJS(code, domSafe = false) {
+    try {
+      if (domSafe) {
+        // Legacy behavior: wrap in DOMContentLoaded for safety
+        new Function(`
+          document.addEventListener('DOMContentLoaded', () => {
+            try { ${code} } catch(e) { console.error('❌ JS error:', e); }
+          });
+        `)();
+      } else {
+        new Function(code)();
       }
-    } else {
-      console.log("⚠️ HSX block skipped (sandbox off).");
+      console.log("💻 JS executed");
+    } catch(e){ console.error("❌ JS error:", e);}
+  }
+  async _runPy(code) { if (this.pyodide) try { await this.pyodide.runPythonAsync(code); console.log("🐍 Python executed"); } catch(e){ console.error("❌ Python error:", e);} }
+
+  // === HSX interpreter ===
+  async _runHSXBlock(code) {
+    if (!this.sandboxed) { console.warn("⚠️ HSX block skipped (sandbox off)"); return; }
+    const lines = code.split("\n").map(l => l.trim());
+    for (let line of lines) {
+      if (!line) continue;
+
+      // === Module execution ===
+      if (line.endsWith(".ps") || line.endsWith(".ks")) { await this._runModule(line.trim()); continue; }
+
+      // === Attachments (keep old '-' and ',' parsing) ===
+      if (line.includes("eq") || line.includes("-") || line.includes(",")) { this._parseAttachmentLegacy(line); continue; }
+
+      // === Fun mode ===
+      if (line.startsWith("hsx:fun")) { await this._runFun(line.replace("hsx:fun","").trim()); continue; }
+
+      // === Inline JS / Py code ===
+      if (line.startsWith("{js")) await this._runJS(line.replace("{js","").replace("}","").trim());
+      else if (line.startsWith("{py")) await this._runPy(line.replace("{py","").replace("}","").trim());
     }
   }
 
-  // === Browser-native execution ===
-  async loadFromFile(file) {
-    const text = await file.text();
-    await this.execute(text);
+  // === Attachments parser (legacy + comma support) ===
+  _parseAttachmentLegacy(line) {
+    const key = line.split("eq")[0].replace("hsx:new","").trim();
+    let val = [];
+    if (line.includes(",")) val = line.split("eq")[1].split(",").map(v=>v.trim());
+    else val = line.split(/eq|-/).slice(1).map(v=>v.trim()); // fallback to old '-' style
+    this.attachments[key] = val;
+    console.log("📎 Attachment stored:", key, this.attachments[key]);
   }
 
-  async loadFromText(text) {
-    await this.execute(text);
+  // === Modules ===
+  async _runModule(name) {
+    if (this.modules[name]) { 
+      try { await this.modules[name](); console.log(`📦 Module executed: ${name}`); } 
+      catch(e){ console.error("❌ Module error:", e);} 
+    } else console.warn(`⚠️ Module not found: ${name}`);
   }
+
+  async _handleModules(cmd) {
+    if (cmd.startsWith("Load")) return console.log("📦 Modules loaded");
+    if (cmd.startsWith("create")) {
+      const name = cmd.split(">")[1]?.trim();
+      if (name) this.modules[name] = async () => console.log(`📦 Module ${name} executed`);
+    }
+    if (cmd.startsWith("comb eq")) {
+      const mods = cmd.split("eq")[1].split("+").map(m=>m.trim());
+      this.modules[mods.join("+")] = async () => { for (let m of mods) await this._runModule(m); console.log(`📦 Combined modules executed: ${mods.join("+")}`); }
+    }
+  }
+
+  // === Fun mode ===
+  async _runFun(code) {
+    console.log("🌀 Fun mode running...");
+    const lines = code.split(/[\n;]/).map(l=>l.trim()).filter(Boolean);
+    for (let line of lines) {
+      if (!line) continue;
+      if (line.endsWith(".ps") || line.endsWith(".ks")) await this._runModule(line);
+      else if (line.startsWith("{js")) await this._runJS(line.replace("{js","").replace("}","").trim());
+      else if (line.startsWith("{py")) await this._runPy(line.replace("{py","").replace("}","").trim());
+      else {
+        // Legacy fallback: eval anything left (raw JS)
+        try { new Function(line)(); console.log("🌀 Fun fallback executed:", line); } catch(e){ console.error("❌ Fun fallback error:", e);}
+      }
+    }
+  }
+
+  async _handleMeta(meta) { console.log("ℹ️ HSX meta:", meta); }
+
+  // === Browser-native execution ===
+  async loadFromFile(file) { await this.execute(await file.text()); }
+  async loadFromText(text) { await this.execute(text); }
 }
 
-// === Global auto-init for browser-native use ===
+// === Auto-init ===
 window.HSXRuntime = HSXRuntime;
 
-// === Drag-and-drop support for local HSX files ===
+// === Drag-and-drop ===
 window.addEventListener("DOMContentLoaded", () => {
   const dropZone = document.createElement("div");
   dropZone.innerText = "📂 Drop HSX files here";
@@ -225,16 +226,11 @@ window.addEventListener("DOMContentLoaded", () => {
   dropZone.addEventListener("dragover", e => e.preventDefault());
   dropZone.addEventListener("drop", async e => {
     e.preventDefault();
-    for (const file of e.dataTransfer.files) {
-      if (file.name.endsWith(".hsx")) {
-        const hsx = new HSXRuntime();
-        await hsx.loadFromFile(file);
-      }
-    }
+    for (const file of e.dataTransfer.files) if (file.name.endsWith(".hsx")) { const hsx = new HSXRuntime(); await hsx.loadFromFile(file); }
   });
 });
 
-// === Auto-load via URL or .hsx file path (kept from v0.61) ===
+// === Auto-load ===
 if (location.search.includes("hsxFiles=")) {
   const filesParam = new URLSearchParams(location.search).get("hsxFiles");
   const files = filesParam.split(",");
@@ -244,4 +240,3 @@ if (location.search.includes("hsxFiles=")) {
   const hsx = new HSXRuntime();
   hsx.load(location.pathname);
 }
-

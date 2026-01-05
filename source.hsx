@@ -68,6 +68,12 @@ fogCanvas.width = calendarContainer.clientWidth;
 fogCanvas.height = calendarContainer.clientHeight;
 
 // ======================
+// Ghost sound (Option 1 fix)
+// ======================
+const ghostAudio = new Audio("ghost-sound.mp3");
+ghostAudio.volume = 0.5; // optional volume control
+
+// ======================
 // Ghost animation
 // ======================
 function animateGhost(ghostEl) {
@@ -120,7 +126,6 @@ function spawnSpiritParticle() {
   });
 }
 
-// Main fog loop
 function animateFog() {
   fogCtx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
 
@@ -160,13 +165,11 @@ addBtn.addEventListener("click", () => {
 
   ghosts.push({ date: dateInput, note: noteInput });
 
-  // Add to list
   const li = document.createElement("li");
   li.textContent = `${dateInput}: ${noteInput}`;
   li.style.marginBottom = "6px";
   ghostList.appendChild(li);
 
-  // Highlight date field
   const glow = document.createElement("div");
   glow.style.position = "absolute";
   glow.style.top = `${Math.random()*200 + 50}px`;
@@ -180,7 +183,6 @@ addBtn.addEventListener("click", () => {
   calendarContainer.appendChild(glow);
   setTimeout(()=>calendarContainer.removeChild(glow), 1800);
 
-  // Spawn ghost
   if (window.HSXRuntime && window.HSXRuntime.prototype.components["Ghost"]) {
     const ghostHTML = window.HSXRuntime.prototype.components["Ghost"];
     const ghostContainer = document.createElement("div");
@@ -191,9 +193,9 @@ addBtn.addEventListener("click", () => {
     document.body.appendChild(ghostEl);
     animateGhost(ghostEl);
 
-    const audio = document.createElement("audio");
-    audio.src = "ghost-sound.mp3";
-    audio.play().catch(()=>console.warn("⚠️ Audio play blocked"));
+    // Play audio safely
+    ghostAudio.currentTime = 0;
+    ghostAudio.play().catch(()=>console.warn("⚠️ Audio play blocked"));
   }
 });
 

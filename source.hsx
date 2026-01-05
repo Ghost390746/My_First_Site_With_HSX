@@ -193,11 +193,11 @@ addBtn.addEventListener("click", () => {
     document.body.appendChild(ghostEl);
     animateGhost(ghostEl);
 
-    try {
-  ghostAudio.currentTime = 0;
-  ghostAudio.play();
-} catch(err) {
-  console.warn("⚠️ Audio play blocked", err);
+   try { 
+  ghostAudio.currentTime = 0; 
+  ghostAudio.play(); 
+} catch(err) { 
+  console.warn("⚠️ Audio play blocked", err); 
 }
 
 
@@ -224,4 +224,5 @@ hsx security on
 {hsx
   hsx render Ghost
 }
+
 

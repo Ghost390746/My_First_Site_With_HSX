@@ -1,229 +1,123 @@
-hsx define component Calendar
-  <div id="calendar-container" style="
-    width: 500px;
-    margin: 50px auto;
-    padding: 35px;
-    border-radius: 25px;
-    background: rgba(10,10,35,0.95);
-    box-shadow: 0 0 40px rgba(120,120,255,0.7);
-    color: #f0f0f0;
-    font-family: 'Segoe UI', sans-serif;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-  ">
-    <!-- Fog & particles canvas -->
-    <canvas id="fog-canvas" style="
-      position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;
-    "></canvas>
+// ================= HSX Module: ghost-fun.ps =================
+hsx modules: create > ghost-fun.ps
 
-    <h2 style="margin-bottom: 20px; text-shadow: 0 0 10px #fff;">👻 Ghost Calli Calendar</h2>
-    <input type="date" id="ghost-date" style="
-      padding: 12px; border-radius: 12px; border: none; margin-bottom: 15px; width: 90%;
-      background: rgba(255,255,255,0.1); color: #fff; font-size: 15px; position:relative; z-index:2;
-    " />
-    <input type="text" id="ghost-note" placeholder="Write a ghost message..." style="
-      padding: 12px; border-radius: 12px; border: none; margin-bottom: 15px; width: 90%;
-      background: rgba(255,255,255,0.1); color: #fff; font-size: 15px; position:relative; z-index:2;
-    " />
-    <button id="add-ghost" style="
-      padding: 14px 30px; border-radius: 15px; border: none;
-      background: rgba(180,180,255,0.6); color: #000; font-weight: bold;
-      cursor: pointer; font-size: 15px; transition: all 0.3s; position:relative; z-index:2;
-    " onmouseover="this.style.background='rgba(200,200,255,0.9)';"
-       onmouseout="this.style.background='rgba(180,180,255,0.6)';">
-      Add Ghost
-    </button>
-    <ul id="ghost-list" style="
-      margin-top: 25px; list-style: none; padding: 0; max-height: 180px; overflow-y: auto;
-      text-align: left; position:relative; z-index:2;
-    "></ul>
-  </div>
-hsx end
+hsx:fun
+window.ghostSystem = {
+  ghosts: [],
+  
+  init(calendarContainerId, fogCanvasId, ghostAudioSrc){
+    const container = document.getElementById(calendarContainerId);
+    const canvas = document.getElementById(fogCanvasId);
+    const ctx = canvas.getContext("2d");
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
 
-hsx define component Ghost
-  <div class="ghost" style="
-    position: absolute; width: 60px; height: 60px;
-    background: rgba(200,200,255,0.4);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 32px; opacity: 0; pointer-events: none;
-    text-shadow: 0 0 12px #fff, 0 0 25px #aaa;
-  ">
-    👻
-  </div>
-hsx end
+    const audio = new Audio(ghostAudioSrc);
+    audio.volume = 0.5;
 
-hsx render Calendar
+    // Ghost animation
+    this.animateGhost = function(el){
+      el.style.transition="opacity 1s, transform 0.5s";
+      el.style.opacity="1";
+      let dx=(Math.random()-0.5)*2;
+      let dy=(Math.random()-0.5)*2;
+      function float(){
+        let top=parseFloat(el.style.top);
+        let left=parseFloat(el.style.left);
+        el.style.top=`${top+dy}px`;
+        el.style.left=`${left+dx}px`;
+        if(top+dy<0||top+dy>window.innerHeight-60) dy=-dy;
+        if(left+dx<0||left+dx>window.innerWidth-60) dx=-dx;
+        requestAnimationFrame(float);
+      }
+      requestAnimationFrame(float);
+      let fade=true;
+      setInterval(()=>{el.style.opacity=fade?"0.6":"1";fade=!fade;},2200);
+    };
 
-{js
-const addBtn = document.getElementById("add-ghost");
-const ghostList = document.getElementById("ghost-list");
-const calendarContainer = document.getElementById("calendar-container");
-const fogCanvas = document.getElementById("fog-canvas");
-const fogCtx = fogCanvas.getContext("2d");
+    // Fog particles
+    this.fogParticles=[];
+    this.spiritParticles=[];
+    for(let i=0;i<60;i++) this.fogParticles.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height,
+      radius:Math.random()*30+20,
+      speed:Math.random()*0.3+0.1,
+      alpha:Math.random()*0.3+0.1,
+      dx:Math.sin(Math.random()*2*Math.PI)*0.3
+    });
+    
+    this.spawnSpiritParticle = () => { 
+      this.spiritParticles.push({
+        x:Math.random()*canvas.width,
+        y:canvas.height+10,
+        radius:Math.random()*10+5,
+        speed:Math.random()*1+0.5,
+        alpha:Math.random()*0.5+0.3
+      }); 
+    };
+    
+    const self=this;
+    function animateFog(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      self.fogParticles.forEach(p=>{
+        p.y-=p.speed;
+        p.x+=p.dx;
+        if(p.y+p.radius<0) p.y=canvas.height+p.radius;
+        ctx.beginPath();
+        ctx.fillStyle=`rgba(200,200,255,${p.alpha})`;
+        ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);
+        ctx.fill();
+      });
+      self.spiritParticles.forEach((p,i)=>{
+        p.y-=p.speed;
+        p.alpha-=0.003;
+        ctx.beginPath();
+        ctx.fillStyle=`rgba(180,180,255,${Math.max(0,p.alpha)})`;
+        ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);
+        ctx.fill();
+        if(p.alpha<=0) self.spiritParticles.splice(i,1);
+      });
+      if(Math.random()<0.03) self.spawnSpiritParticle();
+      requestAnimationFrame(animateFog);
+    }
+    animateFog();
 
-let ghosts = [];
-fogCanvas.width = calendarContainer.clientWidth;
-fogCanvas.height = calendarContainer.clientHeight;
+    this.container = container;
+    this.audio = audio;
+  },
 
-// ======================
-// Ghost sound (Option 1 fix)
-// ======================
-const ghostAudio = new Audio("ghost-sound.mp3");
-ghostAudio.volume = 0.5; // optional volume control
+  addGhost(date,note,ghostHTML){
+    if(!date) return alert("Please select a date!");
+    this.ghosts.push({date,note});
 
-// ======================
-// Ghost animation
-// ======================
-function animateGhost(ghostEl) {
-  ghostEl.style.transition = "opacity 1s, transform 0.5s";
-  ghostEl.style.opacity = "1";
+    const li=document.createElement("li");
+    li.textContent=`${date}: ${note}`;
+    li.style.marginBottom="6px";
+    document.getElementById("ghost-list").appendChild(li);
 
-  let dx = (Math.random() - 0.5) * 2;
-  let dy = (Math.random() - 0.5) * 2;
+    const glow=document.createElement("div");
+    glow.style.position="absolute";
+    glow.style.top=`${Math.random()*200+50}px`;
+    glow.style.left=`${Math.random()*300+50}px`;
+    glow.style.width="15px";
+    glow.style.height="15px";
+    glow.style.borderRadius="50%";
+    glow.style.background="rgba(200,200,255,0.8)";
+    glow.style.boxShadow="0 0 15px rgba(200,200,255,0.9)";
+    glow.style.pointerEvents="none";
+    this.container.appendChild(glow);
+    setTimeout(()=>this.container.removeChild(glow),1800);
 
-  function float() {
-    let top = parseFloat(ghostEl.style.top);
-    let left = parseFloat(ghostEl.style.left);
-    ghostEl.style.top = `${top + dy}px`;
-    ghostEl.style.left = `${left + dx}px`;
-    if (top + dy < 0 || top + dy > window.innerHeight - 60) dy = -dy;
-    if (left + dx < 0 || left + dx > window.innerWidth - 60) dx = -dx;
-    requestAnimationFrame(float);
-  }
-  requestAnimationFrame(float);
-
-  let fade = true;
-  setInterval(() => {
-    ghostEl.style.opacity = fade ? "0.6" : "1";
-    fade = !fade;
-  }, 2200);
-}
-
-// ======================
-// Fog & particle system
-// ======================
-let fogParticles = [];
-let spiritParticles = [];
-for (let i = 0; i < 60; i++) {
-  fogParticles.push({
-    x: Math.random() * fogCanvas.width,
-    y: Math.random() * fogCanvas.height,
-    radius: Math.random() * 30 + 20,
-    speed: Math.random() * 0.3 + 0.1,
-    alpha: Math.random() * 0.3 + 0.1,
-    dx: Math.sin(Math.random() * 2 * Math.PI) * 0.3
-  });
-}
-function spawnSpiritParticle() {
-  spiritParticles.push({
-    x: Math.random() * fogCanvas.width,
-    y: fogCanvas.height + 10,
-    radius: Math.random() * 10 + 5,
-    speed: Math.random() * 1 + 0.5,
-    alpha: Math.random() * 0.5 + 0.3
-  });
-}
-
-function animateFog() {
-  fogCtx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
-
-  fogParticles.forEach(p => {
-    p.y -= p.speed;
-    p.x += p.dx;
-    if (p.y + p.radius < 0) p.y = fogCanvas.height + p.radius;
-    fogCtx.beginPath();
-    fogCtx.fillStyle = `rgba(200,200,255,${p.alpha})`;
-    fogCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-    fogCtx.fill();
-  });
-
-  spiritParticles.forEach((p, i) => {
-    p.y -= p.speed;
-    p.alpha -= 0.003;
-    fogCtx.beginPath();
-    fogCtx.fillStyle = `rgba(180,180,255,${Math.max(0,p.alpha)})`;
-    fogCtx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
-    fogCtx.fill();
-    if (p.alpha <= 0) spiritParticles.splice(i,1);
-  });
-
-  if (Math.random() < 0.03) spawnSpiritParticle();
-
-  requestAnimationFrame(animateFog);
-}
-animateFog();
-
-// ======================
-// Add ghost messages
-// ======================
-addBtn.addEventListener("click", () => {
-  const dateInput = document.getElementById("ghost-date").value;
-  const noteInput = document.getElementById("ghost-note").value.trim();
-  if (!dateInput) return alert("Please select a date!");
-
-  ghosts.push({ date: dateInput, note: noteInput });
-
-  const li = document.createElement("li");
-  li.textContent = `${dateInput}: ${noteInput}`;
-  li.style.marginBottom = "6px";
-  ghostList.appendChild(li);
-
-  const glow = document.createElement("div");
-  glow.style.position = "absolute";
-  glow.style.top = `${Math.random()*200 + 50}px`;
-  glow.style.left = `${Math.random()*300 + 50}px`;
-  glow.style.width = "15px";
-  glow.style.height = "15px";
-  glow.style.borderRadius = "50%";
-  glow.style.background = "rgba(200,200,255,0.8)";
-  glow.style.boxShadow = "0 0 15px rgba(200,200,255,0.9)";
-  glow.style.pointerEvents = "none";
-  calendarContainer.appendChild(glow);
-  setTimeout(()=>calendarContainer.removeChild(glow), 1800);
-
-  if (window.HSXRuntime && window.HSXRuntime.prototype.components["Ghost"]) {
-    const ghostHTML = window.HSXRuntime.prototype.components["Ghost"];
-    const ghostContainer = document.createElement("div");
-    ghostContainer.innerHTML = ghostHTML;
-    const ghostEl = ghostContainer.firstElementChild;
-    ghostEl.style.top = `${Math.random() * (window.innerHeight-60)}px`;
-    ghostEl.style.left = `${Math.random() * (window.innerWidth-60)}px`;
-    document.body.appendChild(ghostEl);
-    animateGhost(ghostEl);
-
-   try { 
-  ghostAudio.currentTime = 0; 
-  ghostAudio.play(); 
-} catch(err) { 
-  console.warn("⚠️ Audio play blocked", err); 
-}
-
-
-// ======================
-// Drag-and-drop support
-// ======================
-calendarContainer.addEventListener("dragover", e => e.preventDefault());
-calendarContainer.addEventListener("drop", async e => {
-  e.preventDefault();
-  for (const file of e.dataTransfer.files) {
-    if (file.name.endsWith(".hsx") && window.HSXRuntime) {
-      const runtime = new HSXRuntime();
-      await runtime.loadFromFile(file);
+    if(ghostHTML){
+      const c=document.createElement("div");
+      c.innerHTML=ghostHTML;
+      const el=c.firstElementChild;
+      el.style.top=`${Math.random()*(window.innerHeight-60)}px`;
+      el.style.left=`${Math.random()*(window.innerWidth-60)}px`;
+      document.body.appendChild(el);
+      this.animateGhost(el);
+      try{this.audio.currentTime=0;this.audio.play();}catch(err){console.warn("⚠️ Audio play blocked",err);}
     }
   }
-});
-}
-
-hsx attach image "ghost.png"
-hsx attach audio "ghost-sound.mp3"
-
-hsx security on
-
-{hsx
-  hsx render Ghost
-}
-
-
-
+hsx end

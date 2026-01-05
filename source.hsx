@@ -12,7 +12,7 @@ hsx define component Calendar
     position: relative;
     overflow: hidden;
   ">
-    <!-- Fog canvas -->
+    <!-- Fog & particles canvas -->
     <canvas id="fog-canvas" style="
       position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;
     "></canvas>
@@ -60,9 +60,16 @@ hsx render Calendar
 const addBtn = document.getElementById("add-ghost");
 const ghostList = document.getElementById("ghost-list");
 const calendarContainer = document.getElementById("calendar-container");
-let ghosts = [];
+const fogCanvas = document.getElementById("fog-canvas");
+const fogCtx = fogCanvas.getContext("2d");
 
-// Animate ghosts with float, fade, and subtle glow
+let ghosts = [];
+fogCanvas.width = calendarContainer.clientWidth;
+fogCanvas.height = calendarContainer.clientHeight;
+
+// ======================
+// Ghost animation
+// ======================
 function animateGhost(ghostEl) {
   ghostEl.style.transition = "opacity 1s, transform 0.5s";
   ghostEl.style.opacity = "1";
@@ -88,73 +95,111 @@ function animateGhost(ghostEl) {
   }, 2200);
 }
 
-// Add ghosts on click
-addBtn.addEventListener("click", () => {
-  const dateInput = document.getElementById("ghost-date").value;
-  const noteInput = document.getElementById("ghost-note").value.trim();
-  if (!dateInput) return alert("Please select a date!");
-  
-  const ghostData = { date: dateInput, note: noteInput };
-  ghosts.push(ghostData);
-
-  const li = document.createElement("li");
-  li.textContent = `${dateInput}: ${noteInput}`;
-  li.style.marginBottom = "6px";
-  ghostList.appendChild(li);
-
-  if (window.HSXRuntime && window.HSXRuntime.prototype.components["Ghost"]) {
-    const ghostHTML = window.HSXRuntime.prototype.components["Ghost"];
-    const ghostContainer = document.createElement("div");
-    ghostContainer.innerHTML = ghostHTML;
-
-    const ghostEl = ghostContainer.firstElementChild;
-    ghostEl.style.top = `${Math.random() * (window.innerHeight - 60)}px`;
-    ghostEl.style.left = `${Math.random() * (window.innerWidth - 60)}px`;
-
-    document.body.appendChild(ghostEl);
-
-    animateGhost(ghostEl);
-
-    const audio = document.createElement("audio");
-    audio.src = "ghost-sound.mp3";
-    audio.play().catch(() => console.warn("⚠️ Audio play blocked"));
-  } else {
-    console.warn("⚠️ Ghost component not found!");
-  }
-});
-
-// Fog & drifting ghost particles
-const fogCanvas = document.getElementById("fog-canvas");
-const fogCtx = fogCanvas.getContext("2d");
-fogCanvas.width = calendarContainer.clientWidth;
-fogCanvas.height = calendarContainer.clientHeight;
-
+// ======================
+// Fog & particle system
+// ======================
 let fogParticles = [];
+let spiritParticles = [];
 for (let i = 0; i < 60; i++) {
   fogParticles.push({
     x: Math.random() * fogCanvas.width,
     y: Math.random() * fogCanvas.height,
     radius: Math.random() * 30 + 20,
     speed: Math.random() * 0.3 + 0.1,
-    alpha: Math.random() * 0.3 + 0.1
+    alpha: Math.random() * 0.3 + 0.1,
+    dx: Math.sin(Math.random() * 2 * Math.PI) * 0.3
+  });
+}
+function spawnSpiritParticle() {
+  spiritParticles.push({
+    x: Math.random() * fogCanvas.width,
+    y: fogCanvas.height + 10,
+    radius: Math.random() * 10 + 5,
+    speed: Math.random() * 1 + 0.5,
+    alpha: Math.random() * 0.5 + 0.3
   });
 }
 
+// Main fog loop
 function animateFog() {
   fogCtx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
+
   fogParticles.forEach(p => {
     p.y -= p.speed;
+    p.x += p.dx;
     if (p.y + p.radius < 0) p.y = fogCanvas.height + p.radius;
     fogCtx.beginPath();
     fogCtx.fillStyle = `rgba(200,200,255,${p.alpha})`;
     fogCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     fogCtx.fill();
   });
+
+  spiritParticles.forEach((p, i) => {
+    p.y -= p.speed;
+    p.alpha -= 0.003;
+    fogCtx.beginPath();
+    fogCtx.fillStyle = `rgba(180,180,255,${Math.max(0,p.alpha)})`;
+    fogCtx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+    fogCtx.fill();
+    if (p.alpha <= 0) spiritParticles.splice(i,1);
+  });
+
+  if (Math.random() < 0.03) spawnSpiritParticle();
+
   requestAnimationFrame(animateFog);
 }
 animateFog();
 
-// Optional drag-and-drop for new HSX files
+// ======================
+// Add ghost messages
+// ======================
+addBtn.addEventListener("click", () => {
+  const dateInput = document.getElementById("ghost-date").value;
+  const noteInput = document.getElementById("ghost-note").value.trim();
+  if (!dateInput) return alert("Please select a date!");
+
+  ghosts.push({ date: dateInput, note: noteInput });
+
+  // Add to list
+  const li = document.createElement("li");
+  li.textContent = `${dateInput}: ${noteInput}`;
+  li.style.marginBottom = "6px";
+  ghostList.appendChild(li);
+
+  // Highlight date field
+  const glow = document.createElement("div");
+  glow.style.position = "absolute";
+  glow.style.top = `${Math.random()*200 + 50}px`;
+  glow.style.left = `${Math.random()*300 + 50}px`;
+  glow.style.width = "15px";
+  glow.style.height = "15px";
+  glow.style.borderRadius = "50%";
+  glow.style.background = "rgba(200,200,255,0.8)";
+  glow.style.boxShadow = "0 0 15px rgba(200,200,255,0.9)";
+  glow.style.pointerEvents = "none";
+  calendarContainer.appendChild(glow);
+  setTimeout(()=>calendarContainer.removeChild(glow), 1800);
+
+  // Spawn ghost
+  if (window.HSXRuntime && window.HSXRuntime.prototype.components["Ghost"]) {
+    const ghostHTML = window.HSXRuntime.prototype.components["Ghost"];
+    const ghostContainer = document.createElement("div");
+    ghostContainer.innerHTML = ghostHTML;
+    const ghostEl = ghostContainer.firstElementChild;
+    ghostEl.style.top = `${Math.random() * (window.innerHeight-60)}px`;
+    ghostEl.style.left = `${Math.random() * (window.innerWidth-60)}px`;
+    document.body.appendChild(ghostEl);
+    animateGhost(ghostEl);
+
+    const audio = document.createElement("audio");
+    audio.src = "ghost-sound.mp3";
+    audio.play().catch(()=>console.warn("⚠️ Audio play blocked"));
+  }
+});
+
+// ======================
+// Drag-and-drop support
+// ======================
 calendarContainer.addEventListener("dragover", e => e.preventDefault());
 calendarContainer.addEventListener("drop", async e => {
   e.preventDefault();
@@ -173,7 +218,5 @@ hsx attach audio "ghost-sound.mp3"
 hsx security on
 
 {hsx
-  // Spawn initial ghost
   hsx render Ghost
 }
-

@@ -1,4 +1,6 @@
-// === Define the Calendar Component with metadata & funstone ===
+// ================================
+// 🎃 Calendar Component (v0.68)
+// ================================
 hsx define component Calendar
   <div id="calendar-container" style="
     width: 500px;
@@ -23,147 +25,97 @@ hsx define component Calendar
       text-shadow: 0 0 10px #fff, 0 0 20px #888;
     ">👻 Ghost Calli Calendar</h2>
 
-    <input type="date" id="ghost-date" style="
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      margin-bottom: 15px;
-      width: 90%;
-      background: rgba(255,255,255,0.1);
-      color: #fff;
-      font-size: 15px;
-      position: relative;
-      z-index: 2;
-      box-shadow: inset 0 0 8px rgba(255,255,255,0.2);
-    " />
+    <input type="date" id="ghost-date" />
+    <input type="text" id="ghost-note" placeholder="Write a ghost message..." />
 
-    <input type="text" id="ghost-note" placeholder="Write a ghost message..." style="
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      margin-bottom: 15px;
-      width: 90%;
-      background: rgba(255,255,255,0.1);
-      color: #fff;
-      font-size: 15px;
-      position: relative;
-      z-index: 2;
-      box-shadow: inset 0 0 8px rgba(255,255,255,0.2);
-    " />
-
-    <button id="add-ghost" style="
-      padding: 14px 30px;
-      border-radius: 15px;
-      border: none;
-      background: rgba(180,180,255,0.6);
-      color: #000;
-      font-weight: bold;
-      cursor: pointer;
-      font-size: 15px;
-      transition: all 0.3s;
-      position: relative;
-      z-index: 2;
-      box-shadow: 0 0 10px rgba(200,200,255,0.5);
-    " onmouseover="this.style.background='rgba(200,200,255,0.9)'; this.style.transform='scale(1.05)';"
-       onmouseout="this.style.background='rgba(180,180,255,0.6)'; this.style.transform='scale(1)';">
-      Add Ghost
-    </button>
-
-    <ul id="ghost-list" style="
-      margin-top: 25px;
-      list-style: none;
-      padding: 0;
-      max-height: 180px;
-      overflow-y: auto;
-      text-align: left;
-      position: relative;
-      z-index: 2;
-    "></ul>
+    <button id="add-ghost">Add Ghost</button>
+    <ul id="ghost-list"></ul>
   </div>
-  (hsx) allow meta data set true:)
-  (hsx) make new meta data tag: calendar-container:)
-  (hsx) allow emotions true:)
-  (hsx) allow data and export true:)
+
+  (hsx) allow meta data set
+  (hsx) allow emotions
+  (hsx) allow data and export
+  (hsx) make new meta data tag: calendar-container
 hsx end
 
-// === Define the Ghost Component with emotions & funstone ===
+
+// ================================
+// 👻 Ghost Block
+// ================================
 hsx define component Ghost
-  <div class="ghost" style="
-    position: absolute;
-    width: 60px;
-    height: 60px;
-    background: rgba(200,200,255,0.4);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 32px;
-    opacity: 0;
-    pointer-events: none;
-    text-shadow: 0 0 12px #fff, 0 0 25px #aaa;
-  ">👻</div>
-  (hsx) allow emotions true:)
-  (hsx) allow data and export true:)
-  (hsx) allow meta data set true:)
-  (hsx) make new meta data tag: ghost:)
+  <div class="ghost">👻</div>
+
+  (hsx) allow emotions
+  (hsx) allow data and export
+  (hsx) allow meta data set
+  (hsx) make new meta data tag: ghost
 hsx end
 
-// === Render the Calendar & attach assets ===
+
+// ================================
+// 🎬 Attach Media
+// ================================
 hsx render Calendar
+hsx render Ghost
 hsx attach image "ghost.png"
 hsx attach audio "ghost-sound.mp3"
 hsx security on
 
-// === Load ghost-fun module ===
+
+// ================================
+// 📦 Modules
+// ================================
 hsx modules: Load ghost-fun.ps
 
-// === Fun mode with metadata, emotions, and funstone ===
+
+// ================================
+// 🌀 Fun Mode Logic
+// ================================
 hsx:fun
-if(window.ghostSystem) {
-  window.ghostSystem.init("calendar-container","fog-canvas","ghost-sound.mp3");
 
-  const addGhostBtn = document.getElementById("add-ghost");
-  addGhostBtn?.addEventListener("click", ()=>{
-    const date = document.getElementById("ghost-date").value;
-    const note = document.getElementById("ghost-note").value.trim();
+const runtime = window.HSXRuntime?.prototype;
 
-    // Funstone for storing ghost data internally in HSX runtime
-    const ghostData = { date, note, created: Date.now() };
-    if(window.HSXRuntime?.prototype.blocks["Ghost"]) {
-      window.HSXRuntime.prototype.blocks["Ghost"].data = ghostData;
+const btn = document.getElementById("add-ghost");
+
+btn?.addEventListener("click", () => {
+  const date = document.getElementById("ghost-date").value;
+  const note = document.getElementById("ghost-note").value;
+
+  const ghostData = { date, note, time: Date.now() };
+
+  // Store funstone data
+  if (runtime?.blocks?.Ghost) {
+    runtime.blocks.Ghost.data = ghostData;
+  }
+
+  // Store metadata
+  if (runtime?.metaTags?.["calendar-container"]) {
+    runtime.metaTags["calendar-container"].lastGhost = ghostData;
+  }
+
+  // Emotion trigger
+  if (runtime?.emotionActive) {
+    console.log("😊 Ghost emotion activated!");
+  }
+
+  // UI effect
+  const list = document.getElementById("ghost-list");
+  const item = document.createElement("li");
+  item.textContent = `${date} — ${note}`;
+  list.appendChild(item);
+});
+
+// Drag-and-drop HSX support
+const container = document.getElementById("calendar-container");
+container?.addEventListener("dragover", e => e.preventDefault());
+container?.addEventListener("drop", async e => {
+  e.preventDefault();
+  for (const file of e.dataTransfer.files) {
+    if (file.name.endsWith(".hsx")) {
+      const r = new HSXRuntime();
+      await r.loadFromFile(file);
     }
+  }
+});
 
-    // Ghost component/block with emotions & metadata
-    const ghostBlock = window.HSXRuntime?.prototype.blocks["Ghost"] || window.HSXRuntime?.prototype.components["Ghost"];
-    window.ghostSystem.addGhost(date, note, ghostBlock);
-
-    // Metadata tagging for calendar
-    if(window.HSXRuntime?.prototype.metaTags["calendar-container"]) {
-      window.HSXRuntime.prototype.metaTags["calendar-container"].lastGhost = ghostData;
-    }
-  });
-
-  // Drag-and-drop HSX support
-  const container = document.getElementById("calendar-container");
-  container?.addEventListener("dragover", e=>e.preventDefault());
-  container?.addEventListener("drop", async e=>{
-    e.preventDefault();
-    for(const file of e.dataTransfer.files) {
-      if(file.name.endsWith(".hsx") && window.HSXRuntime) {
-        const runtime = new HSXRuntime();
-        await runtime.loadFromFile(file);
-      }
-    }
-  });
-
-  // Example of interactive emotion: hover makes ghosts appear
-  const ghostElements = document.querySelectorAll(".ghost");
-  ghostElements.forEach(g=>{
-    g.addEventListener("mouseenter", ()=> g.style.opacity = "1");
-    g.addEventListener("mouseleave", ()=> g.style.opacity = "0");
-  });
-}
 hsx end
-
-// === Render Ghost Template for cloning ===
-hsx render Ghost

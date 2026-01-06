@@ -3,9 +3,8 @@
 // ================================
 hsx modules: create > ghost-fun.ps
 
-
 // ================================
-// 🌀 Fun Runtime
+// 🌀 Fun Runtime with Persistence & Reactions
 // ================================
 hsx:fun
 
@@ -15,106 +14,123 @@ window.ghostSystem = {
   ghosts: [],
   container: null,
   audio: null,
+  calendarId: null,
+  canvasLayers: [],
+  ctxLayers: [],
 
-  init(containerId, canvasId, sound){
+  init(containerId, canvasIds, sound){
     const container = document.getElementById(containerId);
-    const canvas = document.getElementById(canvasId);
-    const ctx = canvas.getContext("2d");
-
-    canvas.width = container.clientWidth;
-    canvas.height = container.clientHeight;
-
     this.container = container;
+    this.calendarId = containerId;
+
+    // Support multiple fog canvas layers
+    canvasIds.forEach(id => {
+      const canvas = document.getElementById(id);
+      const ctx = canvas.getContext("2d");
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      this.canvasLayers.push(canvas);
+      this.ctxLayers.push(ctx);
+    });
+
     this.audio = new Audio(sound);
     this.audio.volume = 0.5;
 
+    // Load persisted ghosts
+    const saved = localStorage.getItem(`ghosts-${containerId}`);
+    if(saved) this.ghosts = JSON.parse(saved);
+
+    // Render saved ghosts
+    this.ghosts.forEach(g => this.addGhost(g.date, g.note, g.html, true));
+
     // === Register emotion handler ===
-    if (runtime?.emotionActive) {
+    if(runtime?.emotionActive){
       runtime.emotions[":)"] = () => console.log("👻 Ghost feels happy!");
       runtime.emotions[":("] = () => console.log("👻 Ghost feels sad...");
     }
 
-    // === Animate ghost with funstone data ===
-    this.animateGhost = (el) => {
+    // === Animate Ghost Function ===
+    this.animateGhost = (el, effect="default") => {
       el.style.transition = "opacity 1s, transform 0.5s";
       el.style.opacity = "1";
-
-      let dx = (Math.random() - 0.5) * 2;
-      let dy = (Math.random() - 0.5) * 2;
+      let dx = (Math.random()-0.5)*2;
+      let dy = (Math.random()-0.5)*2;
 
       const float = () => {
         let top = parseFloat(el.style.top);
         let left = parseFloat(el.style.left);
-
-        el.style.top = `${top + dy}px`;
-        el.style.left = `${left + dx}px`;
-
-        if (top < 0 || top > window.innerHeight - 60) dy *= -1;
-        if (left < 0 || left > window.innerWidth - 60) dx *= -1;
-
+        el.style.top = `${top+dy}px`;
+        el.style.left = `${left+dx}px`;
+        if(top<0||top>window.innerHeight-60) dy*=-1;
+        if(left<0||left>window.innerWidth-60) dx*=-1;
         requestAnimationFrame(float);
       };
       requestAnimationFrame(float);
 
+      // Pulsating & special effect
       let fade = true;
-      setInterval(() => {
-        el.style.opacity = fade ? "0.6" : "1";
+      setInterval(()=>{
+        el.style.opacity = fade?"0.6":"1";
         fade = !fade;
+        if(effect==="spooky") el.style.transform = `rotate(${Math.sin(Date.now()/300)*10}deg)`;
       }, 2200);
 
-      // === Funstone storage ===
-      if (runtime?.blocks?.Ghost) {
+      // Funstone metadata
+      if(runtime?.blocks?.Ghost){
         runtime.blocks.Ghost.data = {
           position: { top: el.style.top, left: el.style.left },
-          created: Date.now()
+          created: Date.now(),
+          effect
         };
       }
     };
 
-    // === Fog & Spirit System ===
-    const fog = Array.from({ length: 60 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      r: Math.random() * 30 + 20,
-      s: Math.random() * 0.3 + 0.1,
-      a: Math.random() * 0.3 + 0.1,
-      dx: Math.sin(Math.random() * Math.PI * 2) * 0.3
-    }));
+    // === Fog layers ===
+    this.fogParticles = this.canvasLayers.map((canvas, i) =>
+      Array.from({length:60}, ()=>({
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height,
+        r: Math.random()*30+20,
+        s: Math.random()*0.3+0.1,
+        a: Math.random()*0.3+0.1,
+        dx: Math.sin(Math.random()*Math.PI*2)*0.3
+      }))
+    );
 
-    const spirits = [];
+    this.spiritParticles = [];
 
-    const spawnSpirit = () => spirits.push({
-      x: Math.random() * canvas.width,
-      y: canvas.height + 10,
-      r: Math.random() * 10 + 5,
-      s: Math.random() + 0.5,
-      a: Math.random() * 0.5 + 0.3
+    const spawnSpirit = () => this.spiritParticles.push({
+      x: Math.random()*container.clientWidth,
+      y: container.clientHeight+10,
+      r: Math.random()*10+5,
+      s: Math.random()*1+0.5,
+      a: Math.random()*0.5+0.3
     });
 
     const animateFog = () => {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-
-      fog.forEach(p => {
-        p.y -= p.s;
-        p.x += p.dx;
-        if (p.y + p.r < 0) p.y = canvas.height + p.r;
-        ctx.fillStyle = `rgba(200,200,255,${p.a})`;
-        ctx.beginPath();
-        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-        ctx.fill();
+      this.ctxLayers.forEach((ctx, idx)=>{
+        ctx.clearRect(0,0,ctx.canvas.width, ctx.canvas.height);
+        this.fogParticles[idx].forEach(p=>{
+          p.y-=p.s; p.x+=p.dx;
+          if(p.y+p.r<0) p.y=ctx.canvas.height+p.r;
+          ctx.beginPath();
+          ctx.fillStyle=`rgba(200,200,255,${p.a})`;
+          ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+          ctx.fill();
+        });
       });
 
-      spirits.forEach((p,i) => {
-        p.y -= p.s;
-        p.a -= 0.003;
-        ctx.fillStyle = `rgba(180,180,255,${Math.max(0,p.a)})`;
+      this.spiritParticles.forEach((p,i)=>{
+        p.y -= p.s; p.a -= 0.003;
+        const ctx = this.ctxLayers[0]; // render spirits on first layer
         ctx.beginPath();
+        ctx.fillStyle=`rgba(180,180,255,${Math.max(0,p.a)})`;
         ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
         ctx.fill();
-        if (p.a <= 0) spirits.splice(i,1);
+        if(p.a<=0) this.spiritParticles.splice(i,1);
       });
 
-      if (Math.random() < 0.03) spawnSpirit();
+      if(Math.random()<0.03) spawnSpirit();
       requestAnimationFrame(animateFog);
     };
     animateFog();
@@ -123,17 +139,27 @@ window.ghostSystem = {
   // ================================
   // 👻 Add Ghost
   // ================================
-  addGhost(date, note, ghostHTML){
-    if (!date) return alert("Pick a date!");
+  addGhost(date, note, ghostHTML, skipPersist=false){
+    if(!date) return alert("Pick a date!");
+    const today = new Date().toISOString().slice(0,10);
 
-    const entry = { date, note, time: Date.now() };
+    // Determine ghost effect
+    let effect="default";
+    if(date===today) effect="today";
+    else if(new Date(date).getDay()===0||new Date(date).getDay()===6) effect="weekend";
+    else if(date.endsWith("-10-31")) effect="spooky"; // Halloween
+
+    const entry = { date, note, time: Date.now(), effect, html: ghostHTML||"" };
     this.ghosts.push(entry);
 
+    // Save to localStorage
+    if(!skipPersist) localStorage.setItem(`ghosts-${this.calendarId}`, JSON.stringify(this.ghosts));
+
     // Funstone storage
-    if (runtime?.blocks?.Ghost) runtime.blocks.Ghost.data = entry;
+    if(runtime?.blocks?.Ghost) runtime.blocks.Ghost.data = entry;
 
     // Metadata storage
-    if (runtime?.metaTags?.ghost) runtime.metaTags.ghost.last = entry;
+    if(runtime?.metaTags?.ghost) runtime.metaTags.ghost.last = entry;
 
     const li = document.createElement("li");
     li.textContent = `${date}: ${note}`;
@@ -141,33 +167,29 @@ window.ghostSystem = {
 
     // Glow effect
     const glow = document.createElement("div");
-    Object.assign(glow.style, {
-      position: "absolute",
-      top: `${Math.random()*200+50}px`,
-      left: `${Math.random()*300+50}px`,
-      width: "15px",
-      height: "15px",
-      borderRadius: "50%",
-      background: "rgba(200,200,255,0.8)",
-      boxShadow: "0 0 15px rgba(200,200,255,0.9)",
-      pointerEvents: "none"
+    Object.assign(glow.style,{
+      position:"absolute",
+      top:`${Math.random()*200+50}px`,
+      left:`${Math.random()*300+50}px`,
+      width:"15px", height:"15px",
+      borderRadius:"50%",
+      background:"rgba(200,200,255,0.8)",
+      boxShadow:"0 0 15px rgba(200,200,255,0.9)",
+      pointerEvents:"none"
     });
     this.container.appendChild(glow);
-    setTimeout(() => this.container.removeChild(glow), 1800);
+    setTimeout(()=>this.container.removeChild(glow),1800);
 
-    if (ghostHTML) {
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = ghostHTML;
+    if(ghostHTML){
+      const wrapper=document.createElement("div");
+      wrapper.innerHTML=ghostHTML;
       const el = wrapper.firstElementChild;
-
       el.style.top = `${Math.random()*(window.innerHeight-60)}px`;
       el.style.left = `${Math.random()*(window.innerWidth-60)}px`;
       document.body.appendChild(el);
 
-      this.animateGhost(el);
-
-      try { this.audio.currentTime=0; this.audio.play(); }
-      catch(e){ console.warn("Audio blocked"); }
+      this.animateGhost(el, effect);
+      try { this.audio.currentTime=0; this.audio.play(); } catch(e){ console.warn("Audio blocked"); }
     }
   }
 };

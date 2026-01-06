@@ -1,18 +1,22 @@
-// hsx-runtime.js — HSX v0.67+ Core (Full Interpreter + Modules + Fun + Attachments + Legacy Safety + New Commands)
+// hsx-runtime.js — HSX v0.68+ Core (Full Interpreter + Modules + Fun + Attachments + Legacy Safety + Full Features)
 // © 2026 William Isaiah Jones
 
 export class HSXRuntime {
   constructor() {
     this.components = {};
-    this.context = {};     // General runtime context
+    this.context = {};
     this.blocks = {};      // User-created HSX blocks (funny, etc.)
     this.data = {};        // User-defined data objects (funstone, etc.)
-    this.modules = {};     // Loaded modules (.ps, .ks)
-    this.attachments = {}; // Media/audio/rec attachments
+    this.modules = {};
+    this.attachments = {};
     this.metaTags = {};    // User-defined meta tags
-    this.emotions = {};    // User-defined interactive emotions
+    this.emotions = {};    // Emotion triggers: key = symbol, value = function
     this.pyodide = null;
-    this.sandboxed = true; // Sandbox mode for HSX blocks
+    this.sandboxed = true;
+
+    this.emotionActive = false;  // Flag when emotions are allowed
+    this.dataExportActive = false; // Flag for exporting block data
+    this.metaActive = false;     // Flag for meta usage
   }
 
   // === Python engine init ===
@@ -73,10 +77,10 @@ export class HSXRuntime {
       // === JS / Python / HSX blocks ===
       if (line.startsWith("{js") || line.startsWith("{py") || line.startsWith("{hsx")) {
         let block = "";
-        const type = line.slice(1, 3); // "js", "py", "hsx"
+        const type = line.slice(1, 3);
         i++;
         while (i < lines.length && !lines[i].match(/^}\s*$/)) { block += lines[i] + "\n"; i++; }
-        if (type === "js") await this._runJS(block, true);  // DOM-safe by default
+        if (type === "js") await this._runJS(block, true);
         else if (type === "py") await this._runPy(block);
         else if (type === "hsx") await this._runHSXBlock(block);
         continue;
@@ -92,11 +96,11 @@ export class HSXRuntime {
       // === Module commands ===
       if (line.startsWith("hsx modules:")) { await this._handleModules(line.replace("hsx modules:", "").trim()); continue; }
 
-      // === Meta / Fun / HSX new commands ===
+      // === New HSX / Meta / Fun / Emotions ===
       if (line.startsWith("hsx:") || line.startsWith("(hsx)")) { await this._handleNewHSXCommands(line); continue; }
       if (line.startsWith("(funny)")) { await this._handleFunnyBlock(line, lines, i); continue; }
 
-      // === Other ===
+      // === Other / meta info ===
       console.log(`ℹ️ HSX meta line: ${line}`);
     }
     console.log("✅ HSX execution complete!");
@@ -148,15 +152,22 @@ export class HSXRuntime {
     for (let line of lines) {
       if (!line) continue;
 
+      // === Module execution ===
       if (line.endsWith(".ps") || line.endsWith(".ks")) { await this._runModule(line.trim()); continue; }
+
+      // === Attachments / legacy parsing ===
       if (line.includes("eq") || line.includes("-") || line.includes(",")) { this._parseAttachmentLegacy(line); continue; }
+
+      // === Fun / inline code ===
       if (line.startsWith("hsx:fun")) { await this._runFun(line.replace("hsx:fun","").trim()); continue; }
       if (line.startsWith("{js")) await this._runJS(line.replace("{js","").replace("}","").trim());
       else if (line.startsWith("{py")) await this._runPy(line.replace("{py","").replace("}","").trim());
+
+      // === Interactive emotions trigger ===
+      if (this.emotionActive) this._checkEmotions(line);
     }
   }
 
-  // === Attachments parser (legacy + comma support) ===
   _parseAttachmentLegacy(line) {
     const key = line.split("eq")[0].replace("hsx:new","").trim();
     let val = [];
@@ -166,7 +177,6 @@ export class HSXRuntime {
     console.log("📎 Attachment stored:", key, this.attachments[key]);
   }
 
-  // === Modules ===
   async _runModule(name) {
     if (this.modules[name]) { 
       try { await this.modules[name](); console.log(`📦 Module executed: ${name}`); } 
@@ -186,7 +196,6 @@ export class HSXRuntime {
     }
   }
 
-  // === Fun mode ===
   async _runFun(code) {
     console.log("🌀 Fun mode running...");
     const lines = code.split(/[\n;]/).map(l=>l.trim()).filter(Boolean);
@@ -199,7 +208,7 @@ export class HSXRuntime {
     }
   }
 
-  // === New HSX commands handler ===
+  // === NEW: full HSX commands / meta / emotions ===
   async _handleNewHSXCommands(line) {
     if (line.startsWith("(hsx) hsx extract modules")) { console.log("📦 HSX module extraction enabled"); return; }
     if (line.startsWith("(hsx) module extraction")) { console.log("📦 Module extraction flag set"); return; }
@@ -210,9 +219,9 @@ export class HSXRuntime {
       console.log(`🆕 Block created: ${name}`);
       return;
     }
-    if (line.startsWith("(hsx) allow data and export")) { console.log("📤 Data export enabled"); return; }
-    if (line.startsWith("(hsx) allow emotions")) { console.log("😃 Emotions enabled"); return; }
-    if (line.startsWith("(hsx) allow meta data set")) { console.log("📝 Meta data enabled"); return; }
+    if (line.startsWith("(hsx) allow data and export")) { this.dataExportActive = true; console.log("📤 Data export enabled"); return; }
+    if (line.startsWith("(hsx) allow emotions")) { this.emotionActive = true; console.log("😃 Emotions enabled"); return; }
+    if (line.startsWith("(hsx) allow meta data set")) { this.metaActive = true; console.log("📝 Meta data enabled"); return; }
     if (line.startsWith("(hsx) make new meta data tag")) {
       const tag = line.split(":")[1]?.trim();
       if (tag) { this.metaTags[tag] = {}; console.log(`🏷️ Meta tag registered: ${tag}`); }
@@ -221,7 +230,6 @@ export class HSXRuntime {
     console.log("ℹ️ HSX new command:", line);
   }
 
-  // === Funny blocks ===
   async _handleFunnyBlock(line, lines, i) {
     const name = line.replace("(funny)","").split(":")[0].trim();
     const contentLines = [];
@@ -229,6 +237,22 @@ export class HSXRuntime {
     while (j < lines.length && !lines[j].startsWith("(funny)")) { contentLines.push(lines[j]); j++; }
     this.blocks[name] = { data: {}, code: contentLines.join("\n") };
     console.log(`😂 Funny block created: ${name}`);
+  }
+
+  // === FULL EMOTIONS HANDLER ===
+  _checkEmotions(line) {
+    // Automatically triggers functions for symbols in line
+    const symbols = [":)", "(:", "):", ":(", ";)", ";(", ");", "(;", "{:}", ").(:"]; // add more as needed
+    for (let sym of symbols) {
+      if (line.includes(sym)) {
+        if (!this.emotions[sym]) {
+          // default behavior: log
+          console.log(`😊 Emotion triggered: ${sym} in line -> "${line}"`);
+        } else {
+          try { this.emotions[sym](line); } catch(e){ console.error("❌ Emotion handler error:", e);}
+        }
+      }
+    }
   }
 
   // === Browser-native execution ===

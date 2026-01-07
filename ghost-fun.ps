@@ -11,6 +11,8 @@ hsx:fun
 const runtime = window.HSXRuntime?.prototype;
 
 window.ghostSystem = {
+  ready: false,
+
   ghosts: [],
   container: null,
   audio: null,
@@ -158,12 +160,20 @@ window.ghostSystem = {
       requestAnimationFrame(animateFog);
     };
     animateFog();
+
+    this.ready = true;
+    console.log("👻 Ghost System initialized and ready");
   },
 
   // ================================
   // 👻 Add Ghost
   // ================================
   addGhost(date, note, ghostHTML, skipPersist=false){
+    if (!this.ready) {
+      console.warn("👻 Ghost system not ready yet");
+      return;
+    }
+
     if(!date) return alert("Pick a date!");
     const today = new Date().toISOString().slice(0,10);
 
@@ -199,5 +209,12 @@ window.ghostSystem = {
     }
   }
 };
+
+// 🔁 Auto-boot the engine
+window.addEventListener("load", () => {
+  if (window.ghostSystem?.init) {
+    window.ghostSystem.init("calendar-container", ["fog-canvas"], "ghost-sound.mp3");
+  }
+});
 
 hsx end

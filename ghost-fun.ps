@@ -46,28 +46,40 @@ window.ghostSystem = {
     this.container = container;
     this.calendarId = containerId;
 
-    // 🎯 CONNECT BUTTON + HSX FUN BLOCK
+    // 🎯 CONNECT BUTTON + HSX FUN BLOCK (robust)
     const bindButton = () => {
       const btn = document.getElementById("add-ghost");
-      if(!btn) return setTimeout(bindButton, 100);
-      btn.onclick = () => {
-        const date = document.getElementById("ghost-date")?.value;
-        const note = document.getElementById("ghost-note")?.value;
+      if(btn){
+        btn.onclick = () => {
+          const date = document.getElementById("ghost-date")?.value;
+          const note = document.getElementById("ghost-note")?.value;
+          if(!date) return alert("Pick a date!");
 
-        // 🔗 HSX funny blocks integration
-        if(runtime?.blocks?.Ghost){
-          runtime.blocks.Ghost.data = { date, note, time: Date.now() };
-        }
-        if(runtime?.metaTags?.["calendar-container"]){
-          runtime.metaTags["calendar-container"].lastGhost = { date, note, time: Date.now() };
-        }
-        if(runtime?.emotionActive){
-          console.log("😊 Ghost emotion activated!");
-        }
+          // HSX funny blocks integration
+          if(runtime?.blocks?.Ghost){
+            runtime.blocks.Ghost.data = { date, note, time: Date.now() };
+          }
+          if(runtime?.metaTags?.["calendar-container"]){
+            runtime.metaTags["calendar-container"].lastGhost = { date, note, time: Date.now() };
+          }
+          if(runtime?.emotionActive){
+            console.log("😊 Ghost emotion activated!");
+          }
 
-        this.addGhost(date, note, "<div class='ghost'>👻</div>");
-      };
-      console.log("👻 Ghost button connected");
+          this.addGhost(date, note, "<div class='ghost'>👻</div>");
+        };
+        console.log("👻 Ghost button connected");
+      } else {
+        // If button not in DOM yet, watch for it
+        const observer = new MutationObserver((mutations, obs)=>{
+          const b = document.getElementById("add-ghost");
+          if(b){
+            obs.disconnect();
+            bindButton();
+          }
+        });
+        observer.observe(document.body, { childList:true, subtree:true });
+      }
     };
     bindButton();
 

@@ -38,7 +38,6 @@ hsx define component Calendar
   (hsx) make new meta data tag: calendar-container
 hsx end
 
-
 // ================================
 // 👻 Ghost Block
 // ================================
@@ -51,7 +50,6 @@ hsx define component Ghost
   (hsx) make new meta data tag: ghost
 hsx end
 
-
 // ================================
 // 🎬 Attach Media
 // ================================
@@ -61,12 +59,10 @@ hsx attach image "ghost.png"
 hsx attach audio "ghost-sound.mp3"
 hsx security on
 
-
 // ================================
 // 📦 Modules
 // ================================
 hsx modules: Load ghost-fun.ps
-
 
 // ================================
 // 🌀 Fun Mode Logic
@@ -75,37 +71,45 @@ hsx:fun
 
 const runtime = window.HSXRuntime?.prototype;
 
-const btn = document.getElementById("add-ghost");
-
-btn?.addEventListener("click", () => {
-  const date = document.getElementById("ghost-date").value;
-  const note = document.getElementById("ghost-note").value;
-
-  const ghostData = { date, note, time: Date.now() };
-
-  // Store funstone data
-  if (runtime?.blocks?.Ghost) {
-    runtime.blocks.Ghost.data = ghostData;
+// ✅ Wait for ghostSystem to be ready before binding button
+const waitForGhostButton = () => {
+  const btn = document.getElementById("add-ghost");
+  if(!btn || !window.ghostSystem?.ready) {
+    setTimeout(waitForGhostButton, 100);
+    return;
   }
 
-  // Store metadata
-  if (runtime?.metaTags?.["calendar-container"]) {
-    runtime.metaTags["calendar-container"].lastGhost = ghostData;
-  }
+  btn.onclick = () => {
+    const date = document.getElementById("ghost-date")?.value;
+    const note = document.getElementById("ghost-note")?.value;
 
-  // Emotion trigger
-  if (runtime?.emotionActive) {
-    console.log("😊 Ghost emotion activated!");
-  }
+    if(!date) return alert("Pick a date!");
 
-  // UI effect
-  const list = document.getElementById("ghost-list");
-  const item = document.createElement("li");
-  item.textContent = `${date} — ${note}`;
-  list.appendChild(item);
-});
+    // --- FULL ghost system call ---
+    window.ghostSystem.addGhost(date, note, "<div class='ghost'>👻</div>");
 
-// Drag-and-drop HSX support
+    // --- HSX block storage ---
+    if(runtime?.blocks?.Ghost){
+      runtime.blocks.Ghost.data = { date, note, time: Date.now() };
+    }
+
+    // --- Meta tag storage ---
+    if(runtime?.metaTags?.["calendar-container"]){
+      runtime.metaTags["calendar-container"].lastGhost = { date, note, time: Date.now() };
+    }
+
+    // --- Emotion trigger ---
+    if(runtime?.emotionActive){
+      console.log("😊 Ghost emotion activated!");
+    }
+  };
+
+  console.log("👻 Ghost button fully connected and ready!");
+};
+
+waitForGhostButton();
+
+// --- Drag-and-drop HSX support ---
 const container = document.getElementById("calendar-container");
 container?.addEventListener("dragover", e => e.preventDefault());
 container?.addEventListener("drop", async e => {

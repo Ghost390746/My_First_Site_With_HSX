@@ -35,52 +35,36 @@
     import { HSXEngine } from "./Engine.js";
 
     const hsx = new HSXRuntime();   // Runtime renders UI
-    const engine = new HSXEngine(); // Engine handles custom logic
+    const engine = new HSXEngine(); // Engine handles logic & custom features
 
-    // ----------- Initialize and load main HSX -----------
-    async function initHSX() {
-      try {
-        // 1️⃣ Render HSX visually via runtime
-        await hsx.load("source.hsx");
-        console.log("✅ HSXRuntime loaded main file.");
+    // 1️⃣ Render main HSX visually via runtime (.load() is required)
+    hsx.load("source.hsx");
 
-        // 2️⃣ Run engine logic for the same file
-        const response = await fetch("source.hsx");
-        if (response.ok) {
-          const code = await response.text();
-          engine.run(code);
-          console.log("✅ HSXEngine ran main file logic.");
-        }
+    // 2️⃣ Run engine logic for the same HSX file
+    fetch("source.hsx")
+      .then(r => r.text())
+      .then(code => engine.run(code))
+      .catch(e => console.error("⚠️ Failed to run engine:", e));
 
-      } catch (err) {
-        console.error("⚠️ Failed to load main HSX:", err);
-      }
-    }
-
-    // ----------- Drag-and-drop support -----------
-    const dropZone = document.getElementById("drop-zone");
-
-    dropZone.addEventListener("dragover", e => e.preventDefault());
-    dropZone.addEventListener("drop", async e => {
+    // 3️⃣ Drag-and-drop support for HSX files
+    const dropZone = document.getElementById('drop-zone');
+    dropZone.addEventListener('dragover', e => e.preventDefault());
+    dropZone.addEventListener('drop', async e => {
       e.preventDefault();
-
       for (const file of e.dataTransfer.files) {
         if (!file.name.endsWith(".hsx")) continue;
 
         console.log("📂 Dropped:", file.name);
 
-        // Render via runtime
+        // Runtime renders dropped HSX visually
         const hsxFile = new HSXRuntime();
         await hsxFile.loadFromFile(file);
 
-        // Run engine logic
+        // Engine runs logic for the dropped file
         const text = await file.text();
         engine.run(text);
       }
     });
-
-    // ----------- Start everything -----------
-    initHSX();
   </script>
 </body>
 </html>

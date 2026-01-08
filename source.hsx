@@ -1,5 +1,5 @@
 // ================================
-// 🎃 Calendar Component (v0.70) using HSXEngine
+// 🎃 Calendar Component (v0.70) using HSXRuntime
 // ================================
 hsx define component Calendar
   <div id="calendar-container" style="
@@ -65,43 +65,43 @@ hsx security on
 hsx modules: Load ghost-fun.ps
 
 // ================================
-// 🌀 Fun Mode Logic using HSXEngine
+// 🌀 Fun Mode Logic using HSXRuntime
 // ================================
 hsx:fun
 
-// --- CCCL: Initialize Engine and Storages ---
-CCCL InitEngine {
-  const engine = new HSXEngine();
+// --- CCCL: Initialize Runtime and Storages ---
+CCCL InitRuntime {
+  const runtime = window.HSXRuntimeInstance ??= new HSXRuntime();
 
   // Secret physic storage
-  engine.storages.ghostNotes ??= {};
-  engine.embedPhysic("ghostNotes");
+  runtime.storages.ghostNotes ??= {};
+  runtime.embedPhysic("ghostNotes");
 
   // Custom storage
-  engine.createCustomStorage("calendarEvents");
+  runtime.createCustomStorage("calendarEvents");
 
   // Custom database block for ghost history
-  engine.customDatabaseBlocks["ghostHistory"] ??= [];
+  runtime.customDatabaseBlocks["ghostHistory"] ??= [];
 
-  // Expose engine globally so other CCCL blocks can use it
-  window.HSXEngineInstance = engine;
+  // Expose globally
+  window.HSXRuntimeInstance = runtime;
 }
 
 // --- CCCL: Add Ghost ---
 CCCL AddGhost {
-  const engine = window.HSXEngineInstance;
+  const runtime = window.HSXRuntimeInstance;
   const date = document.getElementById("ghost-date")?.value;
   const note = document.getElementById("ghost-note")?.value;
   if(!date) return alert("Pick a date!");
 
   // --- Physic Storage ---
-  engine.physicStorage.ghostNotes[date] = note;
+  runtime.physicStorage.ghostNotes[date] = note;
 
   // --- Custom Storage ---
-  engine.customStorages.calendarEvents[date] = note;
+  runtime.customStorages.calendarEvents[date] = note;
 
   // --- Database Block ---
-  engine.customDatabaseBlocks.ghostHistory.push({ date, note, time: Date.now() });
+  runtime.customDatabaseBlocks.ghostHistory.push({ date, note, time: Date.now() });
 
   // --- Add ghost visually ---
   const ul = document.getElementById("ghost-list");
@@ -110,24 +110,24 @@ CCCL AddGhost {
   ul.appendChild(li);
 
   // --- Optional Emotion Trigger ---
-  if(engine.customCodeLines.EmotionTrigger) engine.run("EmotionTrigger");
+  if(runtime.customCodeLines.EmotionTrigger) runtime.run("EmotionTrigger");
 }
 
 // --- CCCL: Emotion Trigger ---
 CCCL EmotionTrigger {
-  console.log("😊 Ghost emotion activated via HSXEngine!");
+  console.log("😊 Ghost emotion activated via HSXRuntime!");
 }
 
 // --- CCCL: Connect Button ---
 CCCL ConnectButton {
-  const engine = window.HSXEngineInstance;
+  const runtime = window.HSXRuntimeInstance;
   const btn = document.getElementById("add-ghost");
-  btn.onclick = () => engine.run("AddGhost");
+  btn.onclick = () => runtime.run("AddGhost");
 }
 
 // --- CCCL: Drag-and-Drop HSX Support ---
 CCCL DragDropSupport {
-  const engine = window.HSXEngineInstance;
+  const runtime = window.HSXRuntimeInstance;
   const container = document.getElementById("calendar-container");
   container?.addEventListener("dragover", e => e.preventDefault());
   container?.addEventListener("drop", async e => {
@@ -135,7 +135,7 @@ CCCL DragDropSupport {
     for (const file of e.dataTransfer.files) {
       if(file.name.endsWith(".hsx")) {
         const text = await file.text();
-        engine.run(text);
+        runtime.run(text);
       }
     }
   });

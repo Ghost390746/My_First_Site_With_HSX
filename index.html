@@ -37,16 +37,26 @@
     const hsx = new HSXRuntime();   // Runtime renders UI
     const engine = new HSXEngine(); // Engine handles logic & custom features
 
-    // 1️⃣ Render main HSX visually via runtime (.load() is required)
-    hsx.load("source.hsx");
+    // ------------------- Initialization -------------------
+    async function initHSX() {
+      try {
+        // 1️⃣ Render main HSX visually via runtime
+        await hsx.load("source.hsx");
+        console.log("✅ HSXRuntime loaded main file.");
 
-    // 2️⃣ Run engine logic for the same HSX file
-    fetch("source.hsx")
-      .then(r => r.text())
-      .then(code => engine.run(code))
-      .catch(e => console.error("⚠️ Failed to run engine:", e));
+        // 2️⃣ Run engine logic for the same file
+        const response = await fetch("source.hsx");
+        if (response.ok) {
+          const code = await response.text();
+          engine.run(code);
+          console.log("✅ HSXEngine ran main file logic.");
+        }
+      } catch (err) {
+        console.error("⚠️ Failed to load main HSX:", err);
+      }
+    }
 
-    // 3️⃣ Drag-and-drop support for HSX files
+    // ------------------- Drag-and-drop -------------------
     const dropZone = document.getElementById('drop-zone');
     dropZone.addEventListener('dragover', e => e.preventDefault());
     dropZone.addEventListener('drop', async e => {
@@ -56,15 +66,18 @@
 
         console.log("📂 Dropped:", file.name);
 
-        // Runtime renders dropped HSX visually
+        // Render visually via a new runtime instance
         const hsxFile = new HSXRuntime();
         await hsxFile.loadFromFile(file);
 
-        // Engine runs logic for the dropped file
+        // Run engine logic
         const text = await file.text();
         engine.run(text);
       }
     });
+
+    // ------------------- Start -------------------
+    initHSX();
   </script>
 </body>
 </html>

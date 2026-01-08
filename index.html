@@ -3,36 +3,97 @@
 <head>
   <meta charset="UTF-8">
   <title>Ghost Calli HSX</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f0f2f5;
+    }
+    h1 {
+      text-align: center;
+    }
+    #drop-zone {
+      border: 2px dashed #666;
+      padding: 20px;
+      margin: 20px auto;
+      text-align: center;
+      width: 80%;
+      background: #fff;
+    }
+    #log {
+      margin: 20px auto;
+      padding: 15px;
+      width: 80%;
+      height: 250px;
+      background: #222;
+      color: #0f0;
+      font-family: monospace;
+      overflow-y: auto;
+      border-radius: 10px;
+    }
+  </style>
 </head>
 <body>
-<h1>📂 Drop your HSX files here</h1>
+  <h1>📂 Drop your HSX files here</h1>
 
-<!-- This is the visible drop zone -->
-<div id="drop-zone" style="border:2px dashed #666; padding:20px; text-align:center;">
-  Drop HSX files here
-</div>
+  <div id="drop-zone">Drop HSX files here</div>
 
-<script type="module">
-import { HSXRuntime } from "./hsx-runtime.js";
+  <!-- Frontend log -->
+  <div id="log"></div>
 
-const hsx = new HSXRuntime();
+  <script type="module">
+    import { HSXRuntime } from "./hsx-runtime.js";
 
-// Automatically load your main HSX
-hsx.load("source.hsx");
-
-// Make drag-and-drop actually do something
-const dropZone = document.getElementById("drop-zone");
-
-dropZone.addEventListener("dragover", e => e.preventDefault());
-dropZone.addEventListener("drop", async e => {
-  e.preventDefault();
-  for (const file of e.dataTransfer.files) {
-    if (file.name.endsWith(".hsx")) {
-      console.log("📂 Dropped:", file.name);
-      await hsx.loadFromFile(file);
+    // --- Utility: log to frontend AND console ---
+    const logDiv = document.getElementById("log");
+    function log(message) {
+      console.log(message);
+      const line = document.createElement("div");
+      line.textContent = message;
+      logDiv.appendChild(line);
+      logDiv.scrollTop = logDiv.scrollHeight;
     }
-  }
-});
-</script>
+
+    // --- Wrap HSXRuntime to override console.log inside ---
+    class FrontendHSXRuntime extends HSXRuntime {
+      async execute(code) {
+        const originalLog = console.log;
+        console.log = (...args) => {
+          originalLog(...args);
+          log(args.join(" "));
+        };
+        try {
+          await super.execute(code);
+        } finally {
+          console.log = originalLog;
+        }
+      }
+      async load(filePath) {
+        log(`🌀 Loading HSX file: ${filePath}`);
+        await super.load(filePath);
+      }
+      async loadFromFile(file) {
+        log(`📂 Dropped: ${file.name}`);
+        await super.loadFromFile(file);
+      }
+    }
+
+    const hsx = new FrontendHSXRuntime();
+
+    // --- Automatically load main HSX ---
+    hsx.load("source.hsx").catch(e => log("❌ Failed to load source.hsx: " + e));
+
+    // --- Drag-and-drop support ---
+    const dropZone = document.getElementById("drop-zone");
+    dropZone.addEventListener("dragover", e => e.preventDefault());
+    dropZone.addEventListener("drop", async e => {
+      e.preventDefault();
+      for (const file of e.dataTransfer.files) {
+        if (file.name.endsWith(".hsx")) {
+          await hsx.loadFromFile(file);
+        }
+      }
+    });
+  </script>
 </body>
 </html>

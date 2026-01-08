@@ -7,32 +7,65 @@
 <body>
 <h1>📂 Drop your HSX files here</h1>
 
-<!-- This is the visible drop zone -->
+<!-- Visible drop zone -->
 <div id="drop-zone" style="border:2px dashed #666; padding:20px; text-align:center;">
   Drop HSX files here
 </div>
 
 <script type="module">
-import { HSXRuntime } from "./hsx-runtime.js";
+  // Import the old runtime for full HSX features
+  import { HSXRuntime } from "./hsx-runtime.js";
+  const hsx = new HSXRuntime();
 
-const hsx = new HSXRuntime();
+  // Import the new Engine for custom extensions
+  import { HSXEngine } from "./Engine.js";
+  const hsxEngine = new HSXEngine();
 
-// Automatically load your main HSX
-hsx.load("source.hsx");
+  // -----------------------------
+  // Load the main HSX file via runtime
+  // -----------------------------
+  hsx.load("source.hsx");
 
-// Make drag-and-drop actually do something
-const dropZone = document.getElementById("drop-zone");
+  // -----------------------------
+  // Drag-and-drop support
+  // -----------------------------
+  const dropZone = document.getElementById("drop-zone");
 
-dropZone.addEventListener("dragover", e => e.preventDefault());
-dropZone.addEventListener("drop", async e => {
-  e.preventDefault();
-  for (const file of e.dataTransfer.files) {
-    if (file.name.endsWith(".hsx")) {
-      console.log("📂 Dropped:", file.name);
-      await hsx.loadFromFile(file);
+  dropZone.addEventListener("dragover", e => e.preventDefault());
+  dropZone.addEventListener("drop", async e => {
+    e.preventDefault();
+    for (const file of e.dataTransfer.files) {
+      if (file.name.endsWith(".hsx")) {
+        console.log("📂 Dropped:", file.name);
+
+        // Runtime handles loading/execution
+        await hsx.loadFromFile(file);
+
+        // Engine handles custom extensions if needed
+        const text = await file.text();
+        hsxEngine.run(text);
+      }
+    }
+  });
+
+  // -----------------------------
+  // Optional: Run the engine on a main HSX file automatically
+  // -----------------------------
+  async function loadMainHSX() {
+    try {
+      const response = await fetch("source.hsx");
+      if (response.ok) {
+        const code = await response.text();
+        hsxEngine.run(code);
+      } else {
+        console.log("⚠️ source.hsx not found");
+      }
+    } catch (err) {
+      console.error("Error loading main HSX for Engine:", err);
     }
   }
-});
+
+  loadMainHSX();
 </script>
 </body>
 </html>

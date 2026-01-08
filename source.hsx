@@ -1,5 +1,5 @@
 // ================================
-// 🎃 Calendar Component (v0.68)
+// 🎃 Calendar Component (v0.70) using HSXEngine
 // ================================
 hsx define component Calendar
   <div id="calendar-container" style="
@@ -65,61 +65,80 @@ hsx security on
 hsx modules: Load ghost-fun.ps
 
 // ================================
-// 🌀 Fun Mode Logic
+// 🌀 Fun Mode Logic using HSXEngine
 // ================================
 hsx:fun
 
-const runtime = window.HSXRuntime?.prototype;
+// --- CCCL: Initialize Engine and Storages ---
+CCCL InitEngine {
+  const engine = new HSXEngine();
 
-// ✅ Wait for ghostSystem to be ready before binding button
-const waitForGhostButton = () => {
+  // Secret physic storage
+  engine.storages.ghostNotes ??= {};
+  engine.embedPhysic("ghostNotes");
+
+  // Custom storage
+  engine.createCustomStorage("calendarEvents");
+
+  // Custom database block for ghost history
+  engine.customDatabaseBlocks["ghostHistory"] ??= [];
+
+  // Expose engine globally so other CCCL blocks can use it
+  window.HSXEngineInstance = engine;
+}
+
+// --- CCCL: Add Ghost ---
+CCCL AddGhost {
+  const engine = window.HSXEngineInstance;
+  const date = document.getElementById("ghost-date")?.value;
+  const note = document.getElementById("ghost-note")?.value;
+  if(!date) return alert("Pick a date!");
+
+  // --- Physic Storage ---
+  engine.physicStorage.ghostNotes[date] = note;
+
+  // --- Custom Storage ---
+  engine.customStorages.calendarEvents[date] = note;
+
+  // --- Database Block ---
+  engine.customDatabaseBlocks.ghostHistory.push({ date, note, time: Date.now() });
+
+  // --- Add ghost visually ---
+  const ul = document.getElementById("ghost-list");
+  const li = document.createElement("li");
+  li.textContent = date + ": " + note + " 👻";
+  ul.appendChild(li);
+
+  // --- Optional Emotion Trigger ---
+  if(engine.customCodeLines.EmotionTrigger) engine.run("EmotionTrigger");
+}
+
+// --- CCCL: Emotion Trigger ---
+CCCL EmotionTrigger {
+  console.log("😊 Ghost emotion activated via HSXEngine!");
+}
+
+// --- CCCL: Connect Button ---
+CCCL ConnectButton {
+  const engine = window.HSXEngineInstance;
   const btn = document.getElementById("add-ghost");
-  if(!btn || !window.ghostSystem?.ready) {
-    setTimeout(waitForGhostButton, 100);
-    return;
-  }
+  btn.onclick = () => engine.run("AddGhost");
+}
 
-  btn.onclick = () => {
-    const date = document.getElementById("ghost-date")?.value;
-    const note = document.getElementById("ghost-note")?.value;
-
-    if(!date) return alert("Pick a date!");
-
-    // --- FULL ghost system call ---
-    window.ghostSystem.addGhost(date, note, "<div class='ghost'>👻</div>");
-
-    // --- HSX block storage ---
-    if(runtime?.blocks?.Ghost){
-      runtime.blocks.Ghost.data = { date, note, time: Date.now() };
+// --- CCCL: Drag-and-Drop HSX Support ---
+CCCL DragDropSupport {
+  const engine = window.HSXEngineInstance;
+  const container = document.getElementById("calendar-container");
+  container?.addEventListener("dragover", e => e.preventDefault());
+  container?.addEventListener("drop", async e => {
+    e.preventDefault();
+    for (const file of e.dataTransfer.files) {
+      if(file.name.endsWith(".hsx")) {
+        const text = await file.text();
+        engine.run(text);
+      }
     }
-
-    // --- Meta tag storage ---
-    if(runtime?.metaTags?.["calendar-container"]){
-      runtime.metaTags["calendar-container"].lastGhost = { date, note, time: Date.now() };
-    }
-
-    // --- Emotion trigger ---
-    if(runtime?.emotionActive){
-      console.log("😊 Ghost emotion activated!");
-    }
-  };
-
-  console.log("👻 Ghost button fully connected and ready!");
-};
-
-waitForGhostButton();
-
-// --- Drag-and-drop HSX support ---
-const container = document.getElementById("calendar-container");
-container?.addEventListener("dragover", e => e.preventDefault());
-container?.addEventListener("drop", async e => {
-  e.preventDefault();
-  for (const file of e.dataTransfer.files) {
-    if (file.name.endsWith(".hsx")) {
-      const r = new HSXRuntime();
-      await r.loadFromFile(file);
-    }
-  }
-});
+  });
+}
 
 hsx end

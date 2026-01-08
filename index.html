@@ -2,82 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ghost Calli HSX</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f0f2f5;
-      margin: 0;
-      padding: 20px;
-    }
-    h1 {
-      text-align: center;
-    }
-    #drop-zone {
-      border: 2px dashed #666;
-      padding: 20px;
-      margin: 20px auto;
-      text-align: center;
-      width: 80%;
-    }
-  </style>
 </head>
 <body>
-  <h1>📂 Drop your HSX files here</h1>
+<h1>📂 Drop your HSX files here</h1>
 
-  <div id="drop-zone">
-    Drop HSX files here
-  </div>
+<!-- This is the visible drop zone -->
+<div id="drop-zone" style="border:2px dashed #666; padding:20px; text-align:center;">
+  Drop HSX files here
+</div>
 
-  <script type="module">
-    import { HSXRuntime } from "./hsx-runtime.js";
-    import { HSXEngine } from "./Engine.js";
+<script type="module">
+import { HSXRuntime } from "./hsx-runtime.js";
 
-    const hsx = new HSXRuntime();   // Runtime renders UI
-    const engine = new HSXEngine(); // Engine handles logic & custom features
+const hsx = new HSXRuntime();
 
-    // ------------------- Initialization -------------------
-    async function initHSX() {
-      try {
-        // 1️⃣ Render main HSX visually via runtime
-        await hsx.load("source.hsx");
-        console.log("✅ HSXRuntime loaded main file.");
+// Automatically load your main HSX
+hsx.load("source.hsx");
 
-        // 2️⃣ Run engine logic for the same file
-        const response = await fetch("source.hsx");
-        if (response.ok) {
-          const code = await response.text();
-          engine.run(code);
-          console.log("✅ HSXEngine ran main file logic.");
-        }
-      } catch (err) {
-        console.error("⚠️ Failed to load main HSX:", err);
-      }
+// Make drag-and-drop actually do something
+const dropZone = document.getElementById("drop-zone");
+
+dropZone.addEventListener("dragover", e => e.preventDefault());
+dropZone.addEventListener("drop", async e => {
+  e.preventDefault();
+  for (const file of e.dataTransfer.files) {
+    if (file.name.endsWith(".hsx")) {
+      console.log("📂 Dropped:", file.name);
+      await hsx.loadFromFile(file);
     }
-
-    // ------------------- Drag-and-drop -------------------
-    const dropZone = document.getElementById('drop-zone');
-    dropZone.addEventListener('dragover', e => e.preventDefault());
-    dropZone.addEventListener('drop', async e => {
-      e.preventDefault();
-      for (const file of e.dataTransfer.files) {
-        if (!file.name.endsWith(".hsx")) continue;
-
-        console.log("📂 Dropped:", file.name);
-
-        // Render visually via a new runtime instance
-        const hsxFile = new HSXRuntime();
-        await hsxFile.loadFromFile(file);
-
-        // Run engine logic
-        const text = await file.text();
-        engine.run(text);
-      }
-    });
-
-    // ------------------- Start -------------------
-    initHSX();
-  </script>
+  }
+});
+</script>
 </body>
 </html>

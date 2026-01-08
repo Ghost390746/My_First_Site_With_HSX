@@ -44,8 +44,9 @@
   <script type="module">
     import { HSXRuntime } from "./hsx-runtime.js";
 
-    // --- Utility: log to frontend AND console ---
     const logDiv = document.getElementById("log");
+
+    // --- log function that shows messages in frontend and console ---
     function log(message) {
       console.log(message);
       const line = document.createElement("div");
@@ -54,7 +55,7 @@
       logDiv.scrollTop = logDiv.scrollHeight;
     }
 
-    // --- Wrap HSXRuntime to override console.log inside ---
+    // --- HSX runtime wrapper to redirect all console.log to frontend ---
     class FrontendHSXRuntime extends HSXRuntime {
       async execute(code) {
         const originalLog = console.log;
@@ -63,7 +64,7 @@
           log(args.join(" "));
         };
         try {
-          await super.execute(code);
+          await super.execute(code); // Normal rendering still works
         } finally {
           console.log = originalLog;
         }
@@ -80,7 +81,7 @@
 
     const hsx = new FrontendHSXRuntime();
 
-    // --- Automatically load main HSX ---
+    // --- Load main HSX normally (will render) ---
     hsx.load("source.hsx").catch(e => log("❌ Failed to load source.hsx: " + e));
 
     // --- Drag-and-drop support ---

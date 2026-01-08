@@ -13,59 +13,54 @@
 </div>
 
 <script type="module">
-  // Import the old runtime for full HSX features
-  import { HSXRuntime } from "./hsx-runtime.js";
-  const hsx = new HSXRuntime();
+import { HSXRuntime } from "./hsx-runtime.js";
+import { HSXEngine } from "./Engine.js";
 
-  // Import the new Engine for custom extensions
-  import { HSXEngine } from "./Engine.js";
-  const hsxEngine = new HSXEngine();
+const hsx = new HSXRuntime();
+const hsxEngine = new HSXEngine();
 
-  // -----------------------------
-  // Drag-and-drop support
-  // -----------------------------
-  const dropZone = document.getElementById("drop-zone");
+// ----------- Initialization function -----------
+async function initHSX() {
+  try {
+    // --- Load the main HSX file via runtime (await ensures DOM renders) ---
+    await hsx.load("source.hsx");
+    console.log("✅ HSXRuntime loaded main file.");
 
-  dropZone.addEventListener("dragover", e => e.preventDefault());
-  dropZone.addEventListener("drop", async e => {
-    e.preventDefault();
-    for (const file of e.dataTransfer.files) {
-      if (file.name.endsWith(".hsx")) {
-        console.log("📂 Dropped:", file.name);
-
-        // 1️⃣ Load via runtime first (renders UI)
-        await hsx.loadFromFile(file);
-
-        // 2️⃣ Feed same file to engine for CCCL/custom features
-        const text = await file.text();
-        hsxEngine.run(text);
-      }
+    // --- Fetch the same HSX file for engine logic ---
+    const response = await fetch("source.hsx");
+    if (response.ok) {
+      const code = await response.text();
+      hsxEngine.run(code);
+      console.log("✅ HSXEngine ran main file logic.");
     }
-  });
 
-  // -----------------------------
-  // Load the main HSX file via runtime first
-  // -----------------------------
-  async function loadMainHSX() {
-    try {
-      const response = await fetch("source.hsx");
-      if (response.ok) {
-        const code = await response.text();
-
-        // 1️⃣ First, render the UI via runtime
-        await hsx.loadFromText(code);
-
-        // 2️⃣ Then, run engine for CCCL logic
-        hsxEngine.run(code);
-      } else {
-        console.log("⚠️ source.hsx not found");
-      }
-    } catch (err) {
-      console.error("Error loading main HSX for Engine:", err);
-    }
+  } catch (err) {
+    console.error("⚠️ Failed to load main HSX:", err);
   }
+}
 
-  loadMainHSX();
+// --- Drag-and-drop support ---
+const dropZone = document.getElementById("drop-zone");
+dropZone.addEventListener("dragover", e => e.preventDefault());
+dropZone.addEventListener("drop", async e => {
+  e.preventDefault();
+
+  for (const file of e.dataTransfer.files) {
+    if (!file.name.endsWith(".hsx")) continue;
+
+    console.log("📂 Dropped:", file.name);
+
+    // --- Runtime handles rendering ---
+    await hsx.loadFromFile(file);
+
+    // --- Engine handles custom logic ---
+    const text = await file.text();
+    hsxEngine.run(text);
+  }
+});
+
+// --- Start everything ---
+initHSX();
 </script>
 </body>
 </html>

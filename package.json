@@ -1,0 +1,15 @@
+{
+  "name": "ghost-calli-hsx",
+  "version": "1.0.0",
+  "description": "HSX Runtime project for Ghost Calli Calendar",
+  "main": "hsx-runtime.js",
+  "type": "module",
+  "scripts": {
+    "start": "node run-hsx.js",
+    "logs": "node run-hsx.js"
+  },
+  "keywords": ["hsx", "runtime", "ghost", "calendar"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {}
+}

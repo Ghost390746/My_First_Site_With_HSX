@@ -31,12 +31,24 @@
       overflow-y: auto;
       border-radius: 10px;
     }
+    #hsx-container {
+      margin: 20px auto;
+      width: 80%;
+      min-height: 300px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+    }
   </style>
 </head>
 <body>
-  <h1>📂 Drop your HSX files here</h1>
+  <h1>📂 Ghost Calli HSX</h1>
 
   <div id="drop-zone">Drop HSX files here</div>
+
+  <!-- Container for HSX rendered content -->
+  <div id="hsx-container"></div>
 
   <!-- Frontend log -->
   <div id="log"></div>
@@ -45,34 +57,50 @@
     import { HSXRuntime } from "./hsx-runtime.js";
 
     const logDiv = document.getElementById("log");
+    const hsxContainer = document.getElementById("hsx-container");
 
-    // --- log function that shows messages in frontend and console ---
-    function log(message) {
-      console.log(message);
+    function log(message, type = "log") {
+      console[type](message);
       const line = document.createElement("div");
       line.textContent = message;
+      if(type === "warn") line.style.color = "yellow";
+      if(type === "error") line.style.color = "red";
       logDiv.appendChild(line);
       logDiv.scrollTop = logDiv.scrollHeight;
     }
 
-    // --- HSX runtime wrapper to redirect all console.log to frontend ---
+    // Extend HSXRuntime to redirect console logs to frontend
     class FrontendHSXRuntime extends HSXRuntime {
+      constructor() {
+        super();
+        // Make HSX append elements to our container instead of body
+        this._originalBodyAppend = document.body.appendChild.bind(document.body);
+        document.body.appendChild = el => hsxContainer.appendChild(el);
+      }
+
       async execute(code) {
         const originalLog = console.log;
-        console.log = (...args) => {
-          originalLog(...args);
-          log(args.join(" "));
-        };
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        console.log = (...args) => log(args.join(" "), "log");
+        console.warn = (...args) => log(args.join(" "), "warn");
+        console.error = (...args) => log(args.join(" "), "error");
+
         try {
-          await super.execute(code); // Normal rendering still works
+          await super.execute(code);
         } finally {
           console.log = originalLog;
+          console.warn = originalWarn;
+          console.error = originalError;
         }
       }
+
       async load(filePath) {
         log(`🌀 Loading HSX file: ${filePath}`);
         await super.load(filePath);
       }
+
       async loadFromFile(file) {
         log(`📂 Dropped: ${file.name}`);
         await super.loadFromFile(file);
@@ -81,8 +109,8 @@
 
     const hsx = new FrontendHSXRuntime();
 
-    // --- Load main HSX normally (will render) ---
-    hsx.load("source.hsx").catch(e => log("❌ Failed to load source.hsx: " + e));
+    // --- Load main HSX and render inside container ---
+    hsx.load("source.hsx").catch(e => log("❌ Failed to load source.hsx: " + e, "error"));
 
     // --- Drag-and-drop support ---
     const dropZone = document.getElementById("drop-zone");

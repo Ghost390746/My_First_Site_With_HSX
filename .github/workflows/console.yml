@@ -1,0 +1,46 @@
+name: HSX Runtime Logs
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  run-hsx:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run HSXRuntime and save logs
+        run: |
+          mkdir -p public
+          node -e "
+          import fs from 'fs';
+          import { HSXRuntime } from './hsx-runtime.js';
+
+          const hsx = new HSXRuntime();
+          const logFile = 'public/hsx-logs.txt';
+          fs.writeFileSync(logFile, '', 'utf8'); // clear file
+
+          ['log','warn','error'].forEach(type => {
+            const original = console[type];
+            console[type] = (...args) => {
+              const line = args.join(' ');
+              fs.appendFileSync(logFile, line + '\n');
+              original(...args);
+            };
+          });
+
+          hsx.load('source.hsx');
+          console.log('✅ HSX load triggered.');
+          console.log('Logs saved to ' + logFile);
+          "

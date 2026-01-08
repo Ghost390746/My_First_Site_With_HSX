@@ -22,11 +22,6 @@
   const hsxEngine = new HSXEngine();
 
   // -----------------------------
-  // Load the main HSX file via runtime
-  // -----------------------------
-  hsx.load("source.hsx");
-
-  // -----------------------------
   // Drag-and-drop support
   // -----------------------------
   const dropZone = document.getElementById("drop-zone");
@@ -38,10 +33,10 @@
       if (file.name.endsWith(".hsx")) {
         console.log("📂 Dropped:", file.name);
 
-        // Runtime handles loading/execution
+        // 1️⃣ Load via runtime first (renders UI)
         await hsx.loadFromFile(file);
 
-        // Engine handles custom extensions if needed
+        // 2️⃣ Feed same file to engine for CCCL/custom features
         const text = await file.text();
         hsxEngine.run(text);
       }
@@ -49,13 +44,18 @@
   });
 
   // -----------------------------
-  // Optional: Run the engine on a main HSX file automatically
+  // Load the main HSX file via runtime first
   // -----------------------------
   async function loadMainHSX() {
     try {
       const response = await fetch("source.hsx");
       if (response.ok) {
         const code = await response.text();
+
+        // 1️⃣ First, render the UI via runtime
+        await hsx.loadFromText(code);
+
+        // 2️⃣ Then, run engine for CCCL logic
         hsxEngine.run(code);
       } else {
         console.log("⚠️ source.hsx not found");

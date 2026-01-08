@@ -46,7 +46,7 @@
 
     const logDiv = document.getElementById("log");
 
-    // Show runtime console messages in frontend
+    // Mirror console messages to frontend
     function log(message, type = "log") {
       console[type](message);
       const line = document.createElement("div");
@@ -57,40 +57,29 @@
       logDiv.scrollTop = logDiv.scrollHeight;
     }
 
-    // Wrap HSXRuntime to mirror console messages
-    class FrontendHSXRuntime extends HSXRuntime {
-      async execute(code) {
-        const originalLog = console.log;
-        const originalWarn = console.warn;
-        const originalError = console.error;
+    // Capture all console messages globally
+    ['log', 'warn', 'error'].forEach(type => {
+      const original = console[type];
+      console[type] = (...args) => {
+        original(...args);
+        log(args.join(' '), type);
+      };
+    });
 
-        console.log = (...args) => log(args.join(" "), "log");
-        console.warn = (...args) => log(args.join(" "), "warn");
-        console.error = (...args) => log(args.join(" "), "error");
+    // HSX runtime instance
+    const hsx = new HSXRuntime();
 
-        try {
-          await super.execute(code);
-        } finally {
-          console.log = originalLog;
-          console.warn = originalWarn;
-          console.error = originalError;
-        }
-      }
-    }
+    // Load the main HSX file normally (no .catch, no async/await)
+    hsx.load("source.hsx");
 
-    const hsx = new FrontendHSXRuntime();
-
-    // Load the main HSX normally — it will render wherever it wants
-    hsx.load("source.hsx").catch(e => log("❌ Failed to load source.hsx: " + e, "error"));
-
-    // Drag-and-drop HSX files
+    // Drag-and-drop support
     const dropZone = document.getElementById("drop-zone");
     dropZone.addEventListener("dragover", e => e.preventDefault());
-    dropZone.addEventListener("drop", async e => {
+    dropZone.addEventListener("drop", e => {
       e.preventDefault();
       for (const file of e.dataTransfer.files) {
         if (file.name.endsWith(".hsx")) {
-          await hsx.loadFromFile(file);
+          hsx.loadFromFile(file);
         }
       }
     });
